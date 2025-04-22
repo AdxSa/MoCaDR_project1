@@ -5,8 +5,12 @@
 import argparse
 import os
 import pickle
+import pandas as pd
+import numpy as np
+from sklearn.metrics import root_mean_squared_error
 from models.train_functions import train_nmf_model
 from models.predict_functions import predict_nmf
+from models.helper_functions import build_rating_matrix
 
 
 def parse_arguments():
@@ -27,6 +31,69 @@ def parse_arguments():
                         help="Algorithm to use (only 'NMF' is implemented).")
     return parser.parse_args()
 
+###########################################################################################
+
+class RecommenderSystem:
+    
+    def __init__(self):
+        self.n_movies = 0
+        self.n_users = 0
+        self.train_file = []
+        self.test_file = []
+
+    def load_data(self, train_file, test_file):
+        self.train_file = train_file
+        self.test_file = test_file
+        df_train = pd.read_csv(train_file)
+        df_test = pd.read_csv(test_file)
+
+        df_train["userId"]  -=1
+        df_train["movieId"] -=1
+        df_test["userId"]  -=1
+        df_test["movieId"] -=1
+
+        self.users = np.sort((df_train["userId"] + df_test["userId"]).unique())
+        self.movies = np.sort((df_train["movieId"] + df_test["movieId"]).unique())
+
+        user_map = {uid: i for i, uid in enumerate(sorted(self.users))}
+        movie_map = {mid: j for j, mid in enumerate(sorted(self.movies))}
+
+        self.n_users = len(user_map)
+        self.n_movies = len(movie_map)
+
+        # funkcja build_rating_matrix do przebudowy!!!
+
+        # self.train_matrix, _, _ = build_rating_matrix(train_file) 
+        # self.test_matrix, _, _ = build_rating_matrix(test_file)
+
+
+    def train_NMF(self):
+        Z_test, user_map, movie_map = build_rating_matrix(self.test_file, impute=True)
+        Z, user_map, movie_map = build_rating_matrix(self.train_file, impute=True)
+        RMSE_list = []
+        for r in range(1, np.min(self.n_users, self.n_movies) + 1):
+            Z_approx = train_nmf_model(Z, r)
+            RMSE_list.append(root_mean_squared_error(Z_approx, Z_test))
+        r_best = np.argmin(RMSE_list)
+        Z_approx = train_nmf_model(Z, r_best)
+        best_error = RMSE_list[r_best]
+
+        return Z_approx, best_error
+
+    def train_SVD1(self):
+        pass
+
+    def train_SVD2(self):
+        pass
+
+    def train_SGD(self):
+        pass
+
+    def predict(self):
+        pass
+
+
+###########################################################################################
 
 def main():
     args = parse_arguments()
@@ -39,7 +106,14 @@ def main():
 
     if train_mode:
         print("Training mode activated (NMF).")
-        Z_approx, user_map, movie_map = train_nmf_model(args.train_file)
+###########################################################################################
+
+        Z, _, _ = build_rating_matrix(args.train_file)
+        train_nmf_mse_list = []
+        for r in range():
+            Z_approx, user_map, movie_map = train_nmf_model(args.train_file, r)
+            train_nmf_mse_list.append()
+###########################################################################################
         # Save the model
         model_data = {
             "Z_approx": Z_approx,
@@ -70,4 +144,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # main()
+    a = RecommenderSystem()
+    a.load_data(open("data\\ratings.csv", "r"))
