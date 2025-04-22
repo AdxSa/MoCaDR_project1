@@ -8,9 +8,11 @@ import pickle
 import pandas as pd
 import numpy as np
 from sklearn.metrics import root_mean_squared_error
-from models.train_functions import train_nmf_model
-from models.predict_functions import predict_nmf
-from models.helper_functions import build_rating_matrix
+from project1_s340146_s336942.models.train_functions import train_nmf_model
+from project1_s340146_s336942.models.predict_functions import predict_nmf
+from project1_s340146_s336942.models.helper_functions import build_rating_matrix
+
+
 
 
 def parse_arguments():
@@ -46,7 +48,6 @@ class RecommenderSystem:
         self.test_file = test_file
         df_train = pd.read_csv(train_file)
         df_test = pd.read_csv(test_file)
-
         df_train["userId"]  -=1
         df_train["movieId"] -=1
         df_test["userId"]  -=1
@@ -146,4 +147,4 @@ def main():
 if __name__ == "__main__":
     # main()
     a = RecommenderSystem()
-    a.load_data(open("data\\ratings.csv", "r"))
+    a.load_data("project1_s340146_s336942/data/ratings.csv", "sample_test.csv")

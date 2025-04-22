@@ -86,7 +86,8 @@ if __name__ == "__main__":
 
     pd.DataFrame(data).to_csv("test.csv", index=False)
 
-    Z, user_map, movie_map = build_rating_matrix("test.csv")
+
+    Z, user_map, movie_map = build_rating_matrix("test.csv", impute= True)
     print(Z)
 
 
