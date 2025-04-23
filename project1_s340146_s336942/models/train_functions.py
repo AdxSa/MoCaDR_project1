@@ -48,9 +48,10 @@ def train_nmf_model(Z, n_components=5):
       - movie_map (dict): Mapping from movieId to column index.
     """
 
-    model = NMF(n_components=n_components, init='random', random_state=0)
+    model = NMF(n_components=n_components, init='random', random_state=0, max_iter=1000)
     W = model.fit_transform(Z)
     H = model.components_
     Z_approx = np.dot(W, H)
+    print('train')
 
     return Z_approx

@@ -46,8 +46,28 @@ class RecommenderSystem:
     def load_data(self, train_file, test_file):
         self.train_file = train_file
         self.test_file = test_file
-        df_train = pd.read_csv(train_file)
-        df_test = pd.read_csv(test_file)
+
+        df_train = pd.read_csv(
+            self.train_file,
+            dtype={
+                "userId":   "int64",
+                "movieId":  "int64",
+                "rating":  "float64",
+                "timestamp": "int64",
+            }
+        )
+        df_test  = pd.read_csv(
+            self.test_file,
+            dtype={
+                "userId":   "int64",
+                "movieId":  "int64",
+                "rating":  "float64",
+                "timestamp": "int64",
+            }
+        )
+
+        df_train.drop(columns=['timestamp'])
+
         df_train["userId"]  -=1
         df_train["movieId"] -=1
         df_test["userId"]  -=1
@@ -69,15 +89,24 @@ class RecommenderSystem:
 
 
     def train_NMF(self):
-        Z_test, user_map, movie_map = build_rating_matrix(self.test_file, impute=True)
+        Z_test, user_map, movie_map = build_rating_matrix(self.test_file, impute=False)
         Z, user_map, movie_map = build_rating_matrix(self.train_file, impute=True)
         RMSE_list = []
-        for r in range(1, np.min(self.n_users, self.n_movies) + 1):
+        print(self.n_movies)
+        print(self.n_users)
+        for r in range(1, min(self.n_users, self.n_movies) + 1):
             Z_approx = train_nmf_model(Z, r)
-            RMSE_list.append(root_mean_squared_error(Z_approx, Z_test))
+            test_i, test_j = np.where(Z_test != 0)  
+            pred_ratings = Z_approx[test_i, test_j]  
+            test_ratings = Z_test[test_i, test_j]
+            rmse = np.sqrt(np.mean((pred_ratings - test_ratings) ** 2))
+            RMSE_list.append(rmse)
+            # RMSE_list.append(root_mean_squared_error(Z_approx, Z_test))
         r_best = np.argmin(RMSE_list)
         Z_approx = train_nmf_model(Z, r_best)
         best_error = RMSE_list[r_best]
+        print(r_best)
+        print(best_error)
 
         return Z_approx, best_error
 
@@ -147,4 +176,5 @@ def main():
 if __name__ == "__main__":
     # main()
     a = RecommenderSystem()
-    a.load_data("project1_s340146_s336942/data/ratings.csv", "sample_test.csv")
+    a.load_data("project1_s340146_s336942/data/ratings.csv", "sample_test_with_ratings.csv")
+    a.train_NMF()

@@ -34,7 +34,7 @@ def weighted_imputation(Z):
                     Z[i, j] = np.mean(Z[Z != 0]) if np.any(Z != 0) else 3.0
     return np.round(Z * 2) / 2.0
 ###########################################################################################
-def build_rating_matrix(train_file, impute = False):
+def build_rating_matrix(train_file, user_map = None, movie_map = None, impute = False):
     """
     Reads a ratings CSV file with columns: userId, movieId, rating.
     Builds and returns the user–movie matrix Z (missing entries set to 0),
@@ -48,7 +48,17 @@ def build_rating_matrix(train_file, impute = False):
       - user_map (dict): Mapping from userId to row index.
       - movie_map (dict): Mapping from movieId to column index.
     """
+
     df = pd.read_csv(train_file)
+
+    if user_map is None:
+        unique_users = df["userId"].unique()
+        user_map = {uid: i for i, uid in enumerate(sorted(unique_users))}
+    
+    if movie_map is None:
+        unique_movies = df["movieId"].unique()
+        movie_map = {mid: j for j, mid in enumerate(sorted(unique_movies))}
+
 
     # Extract unique users and movies
     unique_users = df["userId"].unique()
@@ -71,6 +81,7 @@ def build_rating_matrix(train_file, impute = False):
         j = movie_map[m]
         Z[i, j] = rating
     # Z = impute_missing_values(Z)
+    print('build')
     if impute:
         Z = weighted_imputation(Z)
 
