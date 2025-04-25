@@ -88,7 +88,7 @@ class RecommenderSystem:
         # self.test_matrix, _, _ = build_rating_matrix(test_file)
 
 
-    def train_NMF(self):
+    def NMF(self):
         Z_test, user_map, movie_map = build_rating_matrix(self.test_file, impute=False)
         Z, user_map, movie_map = build_rating_matrix(self.train_file, impute=True)
         RMSE_list = []
@@ -110,13 +110,13 @@ class RecommenderSystem:
 
         return Z_approx, best_error
 
-    def train_SVD1(self):
+    def SVD1(self):
         pass
 
-    def train_SVD2(self):
+    def SVD2(self):
         pass
 
-    def train_SGD(self):
+    def SGD(self):
         pass
 
     def predict(self):
@@ -177,4 +177,4 @@ if __name__ == "__main__":
     # main()
     a = RecommenderSystem()
     a.load_data("project1_s340146_s336942/data/ratings.csv", "sample_test_with_ratings.csv")
-    a.train_NMF()
+    a.NMF()

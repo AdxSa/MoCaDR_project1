@@ -87,6 +87,10 @@ def build_rating_matrix(train_file, user_map = None, movie_map = None, impute = 
 
     return Z, user_map, movie_map
 
+
+def split_data(file):
+    df = pd.read_csv(file)
+
 if __name__ == "__main__":
 
     data = {
