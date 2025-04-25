@@ -1,6 +1,6 @@
-
 import pandas as pd
 import numpy as np
+from sklearn.model_selection import KFold
 ###########################################################################################
 # def impute_missing_values(Z):
 #     user_medians = np.zeros(Z.shape[0])
@@ -90,6 +90,54 @@ def build_rating_matrix(train_file, user_map = None, movie_map = None, impute = 
 
 def split_data(file):
     df = pd.read_csv(file)
+    X = df.drop(columns = ['userId', 'movieId'])
+    y = df['rating']
+    kf = KFold(n_splits = 5, shuffle = True, random_state = 42)
+    train_dfs = []
+    test_dfs = []
+    
+    for train_idx, test_idx in kf.split(X):
+        train_df = df.iloc[train_idx]
+        test_df = df.iloc[test_idx]
+        
+        train_dfs.append(train_df)
+        test_dfs.append(test_df)
+    
+    return train_dfs, test_dfs
+
+# def optimal_r_finder(Z, Z_test, method):
+#     RMSE_list = []
+#     for r in range(1, min(Z.shape(0), Z.shape(1)) + 1):
+#         Z_approx = method(Z, r)
+#         test_i, test_j = np.where(Z_test != 0)  
+#         pred_ratings = Z_approx[test_i, test_j]  
+#         test_ratings = Z_test[test_i, test_j]
+#         rmse = np.sqrt(np.mean((pred_ratings - test_ratings) ** 2))
+#         RMSE_list.append(rmse)
+#             # RMSE_list.append(root_mean_squared_error(Z_approx, Z_test))
+#     r_best = np.argmin(RMSE_list)
+#     return r_best,  RMSE_list[r_best]
+
+
+def optimal_r_finder(file, method):
+    train_dfs, test_dfs = split_data(file)
+    RMSE_fold = []
+    for (train_df, test_df) in zip(train_dfs, test_dfs):
+        RMSE_list = []
+        Z_test, user_map, movie_map = build_rating_matrix(train_df, impute=False)
+        Z, user_map, movie_map = build_rating_matrix(test_df, impute=True)
+        for r in range(1, min(Z.shape(0), Z.shape(1)) + 1):
+            Z_approx = method(Z, r)
+            test_i, test_j = np.where(Z_test != 0)  
+            pred_ratings = Z_approx[test_i, test_j]  
+            test_ratings = Z_test[test_i, test_j]
+            rmse = np.sqrt(np.mean((pred_ratings - test_ratings) ** 2))
+            RMSE_list.append(rmse)
+        RMSE_fold.append(RMSE_list)
+        # r_best = np.argmin(RMSE_list)
+    return RMSE_fold
+
+############################################################################################################
 
 if __name__ == "__main__":
 

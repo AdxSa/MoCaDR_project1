@@ -10,9 +10,9 @@ import numpy as np
 from sklearn.metrics import root_mean_squared_error
 from project1_s340146_s336942.models.train_functions import train_nmf_model
 from project1_s340146_s336942.models.predict_functions import predict_nmf
-from project1_s340146_s336942.models.helper_functions import build_rating_matrix
+from project1_s340146_s336942.models.helper_functions import build_rating_matrix, split_data, optimal_r_finder
 
-
+# Tu zadeklarujemy zmienne globalne
 
 
 def parse_arguments():
@@ -91,20 +91,19 @@ class RecommenderSystem:
     def NMF(self):
         Z_test, user_map, movie_map = build_rating_matrix(self.test_file, impute=False)
         Z, user_map, movie_map = build_rating_matrix(self.train_file, impute=True)
-        RMSE_list = []
-        print(self.n_movies)
-        print(self.n_users)
-        for r in range(1, min(self.n_users, self.n_movies) + 1):
-            Z_approx = train_nmf_model(Z, r)
-            test_i, test_j = np.where(Z_test != 0)  
-            pred_ratings = Z_approx[test_i, test_j]  
-            test_ratings = Z_test[test_i, test_j]
-            rmse = np.sqrt(np.mean((pred_ratings - test_ratings) ** 2))
-            RMSE_list.append(rmse)
+        # RMSE_list = []
+        # print(self.n_movies)
+        # print(self.n_users)
+        # for r in range(1, min(self.n_users, self.n_movies) + 1):
+        #     Z_approx = train_nmf_model(Z, r)
+        #     test_i, test_j = np.where(Z_test != 0)  
+        #     pred_ratings = Z_approx[test_i, test_j]  
+        #     test_ratings = Z_test[test_i, test_j]
+        #     rmse = np.sqrt(np.mean((pred_ratings - test_ratings) ** 2))
+        #     RMSE_list.append(rmse)
             # RMSE_list.append(root_mean_squared_error(Z_approx, Z_test))
-        r_best = np.argmin(RMSE_list)
+        r_best, best_error = optimal_r_finder(Z, Z_test, train_nmf_model)
         Z_approx = train_nmf_model(Z, r_best)
-        best_error = RMSE_list[r_best]
         print(r_best)
         print(best_error)
 
@@ -175,6 +174,8 @@ def main():
 
 if __name__ == "__main__":
     # main()
+    kf = split_data("project1_s340146_s336942/data/ratings.csv")
+
     a = RecommenderSystem()
     a.load_data("project1_s340146_s336942/data/ratings.csv", "sample_test_with_ratings.csv")
     a.NMF()
