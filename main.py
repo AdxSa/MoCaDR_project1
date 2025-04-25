@@ -1,5 +1,5 @@
 ## Methods of classification and dimensionality reduction
-## University of Wroclaw
+## University of Wrocław
 ## author: Paweł Lorek
 
 import argparse
@@ -34,9 +34,8 @@ def parse_arguments():
     return parser.parse_args()
 
 ###########################################################################################
-
 class RecommenderSystem:
-    
+
     def __init__(self):
         self.n_movies = 0
         self.n_users = 0
@@ -50,28 +49,28 @@ class RecommenderSystem:
         df_train = pd.read_csv(
             self.train_file,
             dtype={
-                "userId":   "int64",
-                "movieId":  "int64",
-                "rating":  "float64",
+                "userId": "int64",
+                "movieId": "int64",
+                "rating": "float64",
                 "timestamp": "int64",
             }
         )
-        df_test  = pd.read_csv(
+        df_test = pd.read_csv(
             self.test_file,
             dtype={
-                "userId":   "int64",
-                "movieId":  "int64",
-                "rating":  "float64",
+                "userId": "int64",
+                "movieId": "int64",
+                "rating": "float64",
                 "timestamp": "int64",
             }
         )
 
         df_train.drop(columns=['timestamp'])
 
-        df_train["userId"]  -=1
-        df_train["movieId"] -=1
-        df_test["userId"]  -=1
-        df_test["movieId"] -=1
+        df_train["userId"] -= 1
+        df_train["movieId"] -= 1
+        df_test["userId"] -= 1
+        df_test["movieId"] -= 1
 
         self.users = np.sort((df_train["userId"] + df_test["userId"]).unique())
         self.movies = np.sort((df_train["movieId"] + df_test["movieId"]).unique())
@@ -84,27 +83,25 @@ class RecommenderSystem:
 
         # funkcja build_rating_matrix do przebudowy!!!
 
-        # self.train_matrix, _, _ = build_rating_matrix(train_file) 
+        # self.train_matrix, _, _ = build_rating_matrix(train_file)
         # self.test_matrix, _, _ = build_rating_matrix(test_file)
-
 
     def NMF(self):
         Z_test, user_map, movie_map = build_rating_matrix(self.test_file, impute=False)
         Z, user_map, movie_map = build_rating_matrix(self.train_file, impute=True)
-        RMSE_list = []
-        print(self.n_movies)
-        print(self.n_users)
-        for r in range(1, min(self.n_users, self.n_movies) + 1):
-            Z_approx = train_nmf_model(Z, r)
-            test_i, test_j = np.where(Z_test != 0)  
-            pred_ratings = Z_approx[test_i, test_j]  
-            test_ratings = Z_test[test_i, test_j]
-            rmse = np.sqrt(np.mean((pred_ratings - test_ratings) ** 2))
-            RMSE_list.append(rmse)
-            # RMSE_list.append(root_mean_squared_error(Z_approx, Z_test))
-        r_best = np.argmin(RMSE_list)
+        # RMSE_list = []
+        # print(self.n_movies)
+        # print(self.n_users)
+        # for r in range(1, min(self.n_users, self.n_movies) + 1):
+        #     Z_approx = train_nmf_model(Z, r)
+        #     test_i, test_j = np.where(Z_test != 0)
+        #     pred_ratings = Z_approx[test_i, test_j]
+        #     test_ratings = Z_test[test_i, test_j]
+        #     rmse = np.sqrt(np.mean((pred_ratings - test_ratings) ** 2))
+        #     RMSE_list.append(rmse)
+        # RMSE_list.append(root_mean_squared_error(Z_approx, Z_test))
+        r_best, best_error = optimal_r_finder(Z, Z_test, train_nmf_model)
         Z_approx = train_nmf_model(Z, r_best)
-        best_error = RMSE_list[r_best]
         print(r_best)
         print(best_error)
 
@@ -124,7 +121,6 @@ class RecommenderSystem:
 
 
 ###########################################################################################
-
 def main():
     args = parse_arguments()
     train_mode = (args.train.lower() == "yes")
@@ -174,7 +170,4 @@ def main():
 
 
 if __name__ == "__main__":
-    # main()
-    a = RecommenderSystem()
-    a.load_data("project1_s340146_s336942/data/ratings.csv", "sample_test_with_ratings.csv")
-    a.NMF()
+    pass
