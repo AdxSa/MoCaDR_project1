@@ -10,9 +10,9 @@ import numpy as np
 from sklearn.metrics import root_mean_squared_error
 from project1_s340146_s336942.models.train_functions import train_nmf_model
 from project1_s340146_s336942.models.predict_functions import predict_nmf
-from project1_s340146_s336942.models.helper_functions import build_rating_matrix
+from project1_s340146_s336942.models.helper_functions import build_rating_matrix, split_data, optimal_r_finder
 
-
+# Tu zadeklarujemy zmienne globalne
 
 
 def parse_arguments():
@@ -49,13 +49,13 @@ class RecommenderSystem:
         df_train = pd.read_csv(
             self.train_file,
             dtype={
-                "userId": "int64",
-                "movieId": "int64",
-                "rating": "float64",
+                "userId":   "int64",
+                "movieId":  "int64",
+                "rating":  "float64",
                 "timestamp": "int64",
             }
         )
-        df_test = pd.read_csv(
+        df_test  = pd.read_csv(
             self.test_file,
             dtype={
                 "userId": "int64",
@@ -99,8 +99,8 @@ class RecommenderSystem:
         #     test_ratings = Z_test[test_i, test_j]
         #     rmse = np.sqrt(np.mean((pred_ratings - test_ratings) ** 2))
         #     RMSE_list.append(rmse)
-        # RMSE_list.append(root_mean_squared_error(Z_approx, Z_test))
-        r_best, best_error = optimal_r_finder(Z, Z_test, train_nmf_model)
+            # RMSE_list.append(root_mean_squared_error(Z_approx, Z_test))
+        r_best = np.argmin(RMSE_list)
         Z_approx = train_nmf_model(Z, r_best)
         print(r_best)
         print(best_error)
@@ -170,4 +170,9 @@ def main():
 
 
 if __name__ == "__main__":
-    pass
+    # main()
+    kf = split_data("project1_s340146_s336942/data/ratings.csv")
+
+    a = RecommenderSystem()
+    a.load_data("project1_s340146_s336942/data/ratings.csv", "sample_test_with_ratings.csv")
+    a.NMF()
