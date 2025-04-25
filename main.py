@@ -73,8 +73,9 @@ class RecommenderSystem:
         df_test["userId"]  -=1
         df_test["movieId"] -=1
 
-        self.users = np.sort((df_train["userId"] + df_test["userId"]).unique())
-        self.movies = np.sort((df_train["movieId"] + df_test["movieId"]).unique())
+        self.users = np.sort(pd.concat([df_train["userId"], df_test["userId"]], axis=0).unique())
+
+        self.movies = np.sort(pd.concat([df_train["movieId"], df_test["movieId"]], axis=0).unique())
 
         user_map = {uid: i for i, uid in enumerate(sorted(self.users))}
         movie_map = {mid: j for j, mid in enumerate(sorted(self.movies))}
@@ -174,8 +175,9 @@ def main():
 
 if __name__ == "__main__":
     # main()
-    kf = split_data("project1_s340146_s336942/data/ratings.csv")
+    # kf = split_data("project1_s340146_s336942/data/ratings.csv")
 
-    a = RecommenderSystem()
-    a.load_data("project1_s340146_s336942/data/ratings.csv", "sample_test_with_ratings.csv")
-    a.NMF()
+    # a = RecommenderSystem()
+    # a.load_data("project1_s340146_s336942/data/ratings.csv", "sample_test_with_ratings.csv")
+    # a.NMF()
+    print(optimal_r_finder("project1_s340146_s336942/data/ratings.csv", train_nmf_model))
