@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from sklearn.decomposition import NMF
+from sklearn.decomposition import NMF, TruncatedSVD
 from .helper_functions import build_rating_matrix
 
 
@@ -55,3 +55,18 @@ def train_nmf_model(Z, n_components=5):
     print('train')
 
     return Z_approx
+
+
+def train_svd1_model(train_file, r):
+    Z, user_map, movie_map = build_rating_matrix(train_file, impute=True)
+    svd = TruncatedSVD(n_components=r, random_state=42)
+    svd.fit(Z)
+    Sigma2 = np.diag(svd.singular_values_)
+    VT = svd.components_
+
+    W = svd.transform(Z) / svd.singular_values_
+    H = np.dot(Sigma2, VT)
+    Z_approx = np.dot(W, H)
+    # print(Z_approx)
+    print('train')
+    return Z_approx, user_map, movie_map

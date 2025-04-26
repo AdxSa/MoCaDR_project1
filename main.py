@@ -8,9 +8,11 @@ import pickle
 import pandas as pd
 import numpy as np
 from sklearn.metrics import root_mean_squared_error
-from project1_s340146_s336942.models.train_functions import train_nmf_model
+from project1_s340146_s336942.models.train_functions import train_nmf_model, train_svd1_model
 from project1_s340146_s336942.models.predict_functions import predict_nmf
 from project1_s340146_s336942.models.helper_functions import build_rating_matrix, split_data, optimal_r_finder
+from sklearn.decomposition import TruncatedSVD
+
 
 # Tu zadeklarujemy zmienne globalne
 
@@ -41,6 +43,7 @@ class RecommenderSystem:
         self.n_users = 0
         self.train_file = []
         self.test_file = []
+        self.r = 14
 
     def load_data(self, train_file, test_file):
         self.train_file = train_file
@@ -82,33 +85,48 @@ class RecommenderSystem:
         self.n_users = len(user_map)
         self.n_movies = len(movie_map)
 
+
+        self.Z = build_rating_matrix(train_file, impute=True)
         # funkcja build_rating_matrix do przebudowy!!!
 
         # self.train_matrix, _, _ = build_rating_matrix(train_file)
         # self.test_matrix, _, _ = build_rating_matrix(test_file)
 
-    def NMF(self):
-        Z_test, user_map, movie_map = build_rating_matrix(self.test_file, impute=False)
-        Z, user_map, movie_map = build_rating_matrix(self.train_file, impute=True)
-        # RMSE_list = []
-        # print(self.n_movies)
-        # print(self.n_users)
-        # for r in range(1, min(self.n_users, self.n_movies) + 1):
-        #     Z_approx = train_nmf_model(Z, r)
-        #     test_i, test_j = np.where(Z_test != 0)
-        #     pred_ratings = Z_approx[test_i, test_j]
-        #     test_ratings = Z_test[test_i, test_j]
-        #     rmse = np.sqrt(np.mean((pred_ratings - test_ratings) ** 2))
-        #     RMSE_list.append(rmse)
-            # RMSE_list.append(root_mean_squared_error(Z_approx, Z_test))
-        r_best = np.argmin(RMSE_list)
-        Z_approx = train_nmf_model(Z, r_best)
-        print(r_best)
-        print(best_error)
+    # def NMF(self):
+    #     Z_test, user_map, movie_map = build_rating_matrix(self.test_file, impute=False)
+    #     Z, user_map, movie_map = build_rating_matrix(self.train_file, impute=True)
+    #     # RMSE_list = []
+    #     # print(self.n_movies)
+    #     # print(self.n_users)
+    #     # for r in range(1, min(self.n_users, self.n_movies) + 1):
+    #     #     Z_approx = train_nmf_model(Z, r)
+    #     #     test_i, test_j = np.where(Z_test != 0)
+    #     #     pred_ratings = Z_approx[test_i, test_j]
+    #     #     test_ratings = Z_test[test_i, test_j]
+    #     #     rmse = np.sqrt(np.mean((pred_ratings - test_ratings) ** 2))
+    #     #     RMSE_list.append(rmse)
+    #         # RMSE_list.append(root_mean_squared_error(Z_approx, Z_test))
+    #     r_best = np.argmin(RMSE_list)
+    #     Z_approx = train_nmf_model(Z, r_best)
+    #     print(r_best)
+    #     print(best_error)
+    #
+    #     return Z_approx, best_error
 
-        return Z_approx, best_error
 
-    def SVD1(self):
+    def train_SVD1(self):
+        r = optimal_r_finder(self.train_file, method=TruncatedSVD)
+        svd = TruncatedSVD(n_components=self.r, random_state=42)
+        svd.fit(self.Z)
+        Sigma2 = np.diag(svd.singular_values_)
+        VT = svd.components_
+
+        W = svd.transform(self.Z) / svd.singular_values_
+        H = np.dot(Sigma2, VT)
+        print(self.Z)
+        print(W @ H)
+        return W @ H
+    def SVD1_predict(self, n_components=14):
         pass
 
     def SVD2(self):
@@ -127,33 +145,48 @@ def main():
     train_mode = (args.train.lower() == "yes")
     predict_mode = (args.predict.lower() == "yes")
 
-    if args.alg.upper() != "NMF":
-        print("Only --alg NMF is implemented in this demo.")
+    available_models = {"NMF", "SVD1"}
+
+    if args.alg.upper() not in available_models:
+        print(f"--alg {args.alg.upper()} is not implemented in project.")
         return
 
     if train_mode:
-        print("Training mode activated (NMF).")
+        print("Training mode activated.")
 ###########################################################################################
+        if args.alg.upper() == "NMF":
+            Z_approx, user_map, movie_map = train_nmf_model(args.train_file)
+###########################################################################################
+            # Save the model
+            model_data = {
+                "Z_approx": Z_approx,
+                "user_map": user_map,
+                "movie_map": movie_map
+            }
+            os.makedirs(os.path.dirname(args.model_path), exist_ok=True)
+            with open(args.model_path, "wb") as f:
+                pickle.dump(model_data, f)
+            print(f"Model saved to {args.model_path}")
 
-        Z, _, _ = build_rating_matrix(args.train_file)
-        train_nmf_mse_list = []
-        for r in range():
-            Z_approx, user_map, movie_map = train_nmf_model(args.train_file, r)
-            train_nmf_mse_list.append()
-###########################################################################################
-        # Save the model
-        model_data = {
-            "Z_approx": Z_approx,
-            "user_map": user_map,
-            "movie_map": movie_map
-        }
-        os.makedirs(os.path.dirname(args.model_path), exist_ok=True)
-        with open(args.model_path, "wb") as f:
-            pickle.dump(model_data, f)
-        print(f"Model saved to {args.model_path}")
+        if args.alg.upper() == "SVD1":
+
+            best_r, _ = optimal_r_finder(args.train_file, train_svd1_model)
+
+            Z_approx, user_map, movie_map = train_svd1_model(args.train_file, best_r)
+            ###########################################################################################
+            # Save the model
+            model_data = {
+                "Z_approx": Z_approx,
+                "user_map": user_map,
+                "movie_map": movie_map
+            }
+            os.makedirs(os.path.dirname(args.model_path), exist_ok=True)
+            with open(args.model_path, "wb") as f:
+                pickle.dump(model_data, f)
+            print(f"Model saved to {args.model_path}")
 
     if predict_mode:
-        print("Prediction mode activated (NMF).")
+        print("Prediction mode activated.")
         if not os.path.exists(args.model_path):
             print("Model file does not exist. Please run training first.")
             return
@@ -171,10 +204,10 @@ def main():
 
 
 if __name__ == "__main__":
-    # main()
-    # kf = split_data("project1_s340146_s336942/data/ratings.csv")
-
+    main()
+    # # kf = split_data("project1_s340146_s336942/data/ratings.csv")
+    #
     # a = RecommenderSystem()
     # a.load_data("project1_s340146_s336942/data/ratings.csv", "sample_test_with_ratings.csv")
-    # a.NMF()
-    print(optimal_r_finder("project1_s340146_s336942/data/ratings.csv", train_nmf_model))
+    # a.train_SVD1()
+    # # print(optimal_r_finder("project1_s340146_s336942/data/ratings.csv", train_nmf_model))

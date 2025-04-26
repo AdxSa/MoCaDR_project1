@@ -88,7 +88,7 @@ def weighted_imputation(Z):
 #     return Z, user_map, movie_map
 
 
-def build_rating_matrix(df, user_map = None, movie_map = None, impute = False):
+def build_rating_matrix(train_file, user_map = None, movie_map = None, impute = False):
     """
     Reads a ratings CSV file with columns: userId, movieId, rating.
     Builds and returns the user–movie matrix Z (missing entries set to 0),
@@ -102,8 +102,11 @@ def build_rating_matrix(df, user_map = None, movie_map = None, impute = False):
       - user_map (dict): Mapping from userId to row index.
       - movie_map (dict): Mapping from movieId to column index.
     """
+    if isinstance(train_file, str) :
+        df = pd.read_csv(train_file)
+    else:
+        df = train_file
 
-    # df = pd.read_csv(train_file)
 
     if user_map is None:
         unique_users = df["userId"].unique()
@@ -134,8 +137,8 @@ def build_rating_matrix(df, user_map = None, movie_map = None, impute = False):
     print('build')
     if impute:
         Z = weighted_imputation(Z)
-
-    return Z#, user_map, movie_map
+        print("build")
+    return Z, user_map, movie_map
 
 def split_data(file):
     df = pd.read_csv(file)
@@ -166,29 +169,30 @@ def optimal_r_finder(file, method):
     # test_df["userId"]  -=1
     # test_df["movieId"] -=1
 
-    users = np.sort(pd.concat([train_df["userId"], test_df["userId"]], axis=0).unique())
-
-    movies = np.sort(pd.concat([train_df["movieId"], test_df["movieId"]], axis=0).unique())
-
-    user_map = {uid: i for i, uid in enumerate(sorted(users))}
-    movie_map = {mid: j for j, mid in enumerate(sorted(movies))}
+    # users = np.sort(pd.concat([train_df["userId"], test_df["userId"]], axis=0).unique())
+    #
+    # movies = np.sort(pd.concat([train_df["movieId"], test_df["movieId"]], axis=0).unique())
+    #
+    # user_map = {uid: i for i, uid in enumerate(sorted(users))}
+    # movie_map = {mid: j for j, mid in enumerate(sorted(movies))}
 
     for (train_df, test_df) in zip(train_dfs, test_dfs):
         RMSE_list = []       
 
-        Z = build_rating_matrix(test_df, user_map, movie_map, impute=True)
-        Z_test = build_rating_matrix(train_df, user_map, movie_map, impute=False)
+        # Z = build_rating_matrix(train_df, user_map, movie_map, impute=True)
+        Z_test, _, _ = build_rating_matrix(test_df, impute=False)
         # for r in range(1, min(Z.shape[0], Z.shape[1]) + 1):
         for r in range(1, 40):
-            Z_approx = method(Z, r)
+            Z_approx, _, _ = method(train_df, r)
             test_i, test_j = np.where(Z_test != 0)  
             pred_ratings = Z_approx[test_i, test_j]  
             test_ratings = Z_test[test_i, test_j]
             rmse = np.sqrt(np.mean((pred_ratings - test_ratings) ** 2))
             RMSE_list.append(rmse)
+            print(f"policzono dla r={r}, rmse = {rmse}")
         RMSE_fold.append(RMSE_list)
-        # r_best = np.argmin(RMSE_list)
-    return RMSE_fold
+        r_best = np.argmin(RMSE_list)
+    return r_best, RMSE_fold
 
 
 # TO DAŁ CZAT:
@@ -281,7 +285,7 @@ if __name__ == "__main__":
     pd.DataFrame(data).to_csv("test.csv", index=False)
 
 
-    Z, user_map, movie_map = build_rating_matrix("test.csv", impute= True)
+    Z = build_rating_matrix("test.csv", impute= True)
     print(Z)
 
 
