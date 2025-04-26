@@ -8,8 +8,8 @@ import pickle
 import pandas as pd
 import numpy as np
 from sklearn.metrics import root_mean_squared_error
-from project1_s340146_s336942.models.train_functions import train_nmf_model, train_svd1_model
-from project1_s340146_s336942.models.predict_functions import predict_nmf
+from project1_s340146_s336942.models.train_functions import train_nmf_model, train_svd1_model, train_svd2_model
+from project1_s340146_s336942.models.predict_functions import predict_ratings
 from project1_s340146_s336942.models.helper_functions import build_rating_matrix, split_data, optimal_r_finder
 from sklearn.decomposition import TruncatedSVD
 
@@ -173,45 +173,56 @@ def main():
     train_mode = (args.train.lower() == "yes")
     predict_mode = (args.predict.lower() == "yes")
 
-    available_models = {"NMF", "SVD1"}
+    ALGORITHMS = {
+        "NMF": {
+            "trainer": train_nmf_model,
+            "n_splits": 10,
+            "train_kwargs": {"init": "nndsvda", "max_iter": 3000}
+        },
+        "SVD1": {
+            "trainer": train_svd1_model,
+            "n_splits": 10,
+            "train_kwargs": {}
+        },
+        "SVD2": {
+            "trainer": train_svd2_model,
+            "n_splits": 10,
+            "train_kwargs": {"n_iter": 10}
+        },
+    }
 
-    if args.alg.upper() not in available_models:
+    if args.alg.upper() not in ALGORITHMS:
         print(f"--alg {args.alg.upper()} is not implemented in project.")
         return
 
     if train_mode:
-        print("Training mode activated.")
-###########################################################################################
-        if args.alg.upper() == "NMF":
-            Z_approx, user_map, movie_map = train_nmf_model(args.train_file)
-###########################################################################################
-            # Save the model
-            model_data = {
-                "Z_approx": Z_approx,
-                "user_map": user_map,
-                "movie_map": movie_map
-            }
-            os.makedirs(os.path.dirname(args.model_path), exist_ok=True)
-            with open(args.model_path, "wb") as f:
-                pickle.dump(model_data, f)
-            print(f"Model saved to {args.model_path}")
+        alg = args.alg.upper()
+        entry = ALGORITHMS[alg]
+        trainer = entry["trainer"]
+        n_splits = entry["n_splits"]
+        extra_kw = entry.get("train_kwargs", {})
 
-        if args.alg.upper() == "SVD1":
+        print(f"Training mode activated.  Algorithm = {alg}")
 
-            best_r, _ = optimal_r_finder(args.train_file, train_svd1_model)
+        # 2) find the best hyper‐param r
+        best_r, _ = optimal_r_finder(args.train_file, trainer, n_splits)
+        print(f" -> Best r = {best_r}")
 
-            Z_approx, user_map, movie_map = train_svd1_model(args.train_file, best_r)
-            ###########################################################################################
-            # Save the model
-            model_data = {
-                "Z_approx": Z_approx,
-                "user_map": user_map,
-                "movie_map": movie_map
-            }
-            os.makedirs(os.path.dirname(args.model_path), exist_ok=True)
-            with open(args.model_path, "wb") as f:
-                pickle.dump(model_data, f)
-            print(f"Model saved to {args.model_path}")
+        Z_approx, user_map, movie_map = trainer(
+            args.train_file,
+            r=best_r,
+            **extra_kw
+        )
+        model_data = {
+            "Z_approx": Z_approx,
+            "user_map": user_map,
+            "movie_map": movie_map
+        }
+        os.makedirs(os.path.dirname(args.model_path), exist_ok=True)
+        with open(args.model_path, "wb") as f:
+            pickle.dump(model_data, f)
+
+        print(f"Model saved to {args.model_path}")
 
     if predict_mode:
         print("Prediction mode activated.")
@@ -220,7 +231,7 @@ def main():
             return
         with open(args.model_path, "rb") as f:
             model_data = pickle.load(f)
-        predictions = predict_nmf(args.test_file, model_data)
+        predictions = predict_ratings(args.test_file, model_data)
 
         # Save predictions
         os.makedirs(os.path.dirname(args.output_file), exist_ok=True)
