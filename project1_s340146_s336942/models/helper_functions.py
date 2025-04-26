@@ -141,7 +141,7 @@ def split_data(file):
     df = pd.read_csv(file)
     X = df.drop(columns = ['userId', 'movieId'])
     # y = df['rating']
-    kf = KFold(n_splits = 5, shuffle = True, random_state = 42)
+    kf = KFold(n_splits = 10, shuffle = True, random_state = 42)
     train_dfs = []
     test_dfs = []
     
@@ -176,10 +176,10 @@ def optimal_r_finder(file, method):
     for (train_df, test_df) in zip(train_dfs, test_dfs):
         RMSE_list = []       
 
-        Z = build_rating_matrix(test_df, user_map, movie_map, impute=True)
-        Z_test = build_rating_matrix(train_df, user_map, movie_map, impute=False)
+        Z = build_rating_matrix(train_df, user_map, movie_map, impute=True)
+        Z_test = build_rating_matrix(test_df, user_map, movie_map, impute=False)
         # for r in range(1, min(Z.shape[0], Z.shape[1]) + 1):
-        for r in range(1, 40):
+        for r in range(1, 30):
             Z_approx = method(Z, r)
             test_i, test_j = np.where(Z_test != 0)  
             pred_ratings = Z_approx[test_i, test_j]  

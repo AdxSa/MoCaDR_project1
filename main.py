@@ -41,13 +41,13 @@ class RecommenderSystem:
         self.n_users = 0
         self.train_file = []
         self.test_file = []
+        self.movie_map = {}
+        self.user_map = {}
 
     def load_data(self, train_file, test_file):
-        self.train_file = train_file
-        self.test_file = test_file
 
-        df_train = pd.read_csv(
-            self.train_file,
+        self.df_train = pd.read_csv(
+            train_file,
             dtype={
                 "userId":   "int64",
                 "movieId":  "int64",
@@ -55,8 +55,8 @@ class RecommenderSystem:
                 "timestamp": "int64",
             }
         )
-        df_test  = pd.read_csv(
-            self.test_file,
+        self.df_test  = pd.read_csv(
+            test_file,
             dtype={
                 "userId": "int64",
                 "movieId": "int64",
@@ -65,22 +65,22 @@ class RecommenderSystem:
             }
         )
 
-        df_train.drop(columns=['timestamp'])
+        self.df_train.drop(columns=['timestamp'])
 
-        df_train["userId"] -= 1
-        df_train["movieId"] -= 1
-        df_test["userId"] -= 1
-        df_test["movieId"] -= 1
+        self.df_train["userId"] -= 1
+        self.df_train["movieId"] -= 1
+        self.df_test["userId"] -= 1
+        self.df_test["movieId"] -= 1
 
-        self.users = np.sort(pd.concat([df_train["userId"], df_test["userId"]], axis=0).unique())
+        self.users = np.sort(pd.concat([self.df_train["userId"], self.df_test["userId"]], axis=0).unique())
 
-        self.movies = np.sort(pd.concat([df_train["movieId"], df_test["movieId"]], axis=0).unique())
+        self.movies = np.sort(pd.concat([self.df_train["movieId"], self.df_test["movieId"]], axis=0).unique())
 
-        user_map = {uid: i for i, uid in enumerate(sorted(self.users))}
-        movie_map = {mid: j for j, mid in enumerate(sorted(self.movies))}
+        self.user_map = {uid: i for i, uid in enumerate(sorted(self.users))}
+        self.movie_map = {mid: j for j, mid in enumerate(sorted(self.movies))}
 
-        self.n_users = len(user_map)
-        self.n_movies = len(movie_map)
+        self.n_users = len(self.user_map)
+        self.n_movies = len(self.movie_map)
 
         # funkcja build_rating_matrix do przebudowy!!!
 
@@ -88,8 +88,8 @@ class RecommenderSystem:
         # self.test_matrix, _, _ = build_rating_matrix(test_file)
 
     def NMF(self):
-        Z_test, user_map, movie_map = build_rating_matrix(self.test_file, impute=False)
-        Z, user_map, movie_map = build_rating_matrix(self.train_file, impute=True)
+        Z_test = build_rating_matrix(self.df_test, user_map=self.user_map, movie_map=self.movie_map, impute=False)
+        Z = build_rating_matrix(self.df_train, user_map=self.user_map, movie_map=self.movie_map, impute=True)
         # RMSE_list = []
         # print(self.n_movies)
         # print(self.n_users)
@@ -101,12 +101,41 @@ class RecommenderSystem:
         #     rmse = np.sqrt(np.mean((pred_ratings - test_ratings) ** 2))
         #     RMSE_list.append(rmse)
             # RMSE_list.append(root_mean_squared_error(Z_approx, Z_test))
-        r_best = np.argmin(RMSE_list)
-        Z_approx = train_nmf_model(Z, r_best)
-        print(r_best)
-        print(best_error)
+        # r_best = np.argmin(RMSE_list)
+        Z_approx = train_nmf_model(Z, 2)
+        test_i, test_j = np.where(Z_test != 0)
+        pred_ratings = Z_approx[test_i, test_j]
+        test_ratings = Z_test[test_i, test_j]
+        rmse = np.sqrt(np.mean((pred_ratings - test_ratings) ** 2))
 
-        return Z_approx, best_error
+        print("2")
+        print(rmse)
+
+        Z_approx = train_nmf_model(Z, 14)
+        test_i, test_j = np.where(Z_test != 0)
+        pred_ratings = Z_approx[test_i, test_j]
+        test_ratings = Z_test[test_i, test_j]
+        rmse = np.sqrt(np.mean((pred_ratings - test_ratings) ** 2))
+        print("4")
+        print(rmse)
+
+        Z_approx = train_nmf_model(Z, 14)
+        test_i, test_j = np.where(Z_test != 0)
+        pred_ratings = Z_approx[test_i, test_j]
+        test_ratings = Z_test[test_i, test_j]
+        rmse = np.sqrt(np.mean((pred_ratings - test_ratings) ** 2))
+        print("8")
+        print(rmse)
+
+        Z_approx = train_nmf_model(Z, 14)
+        test_i, test_j = np.where(Z_test != 0)
+        pred_ratings = Z_approx[test_i, test_j]
+        test_ratings = Z_test[test_i, test_j]
+        rmse = np.sqrt(np.mean((pred_ratings - test_ratings) ** 2))
+        print("14")
+        print(rmse)
+
+        return Z_approx, rmse
 
     def SVD1(self):
         pass
@@ -174,7 +203,7 @@ if __name__ == "__main__":
     # main()
     # kf = split_data("project1_s340146_s336942/data/ratings.csv")
 
-    # a = RecommenderSystem()
-    # a.load_data("project1_s340146_s336942/data/ratings.csv", "sample_test_with_ratings.csv")
-    # a.NMF()
-    print(optimal_r_finder("project1_s340146_s336942/data/ratings.csv", train_nmf_model))
+    a = RecommenderSystem()
+    a.load_data("project1_s340146_s336942/data/ratings.csv", "sample_test_with_ratings.csv")
+    a.NMF()
+    # print(optimal_r_finder("project1_s340146_s336942/data/ratings.csv", train_nmf_model))
