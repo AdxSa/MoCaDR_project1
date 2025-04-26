@@ -184,7 +184,7 @@ def optimal_r_finder(file, method):
         # for r in range(1, min(Z.shape[0], Z.shape[1]) + 1):
         for r in range(1, 40):
             Z_approx, _, _ = method(train_df, r)
-            test_i, test_j = np.where(Z_test != 0)  
+            test_i, test_j = np.where(Z_test != 0)
             pred_ratings = Z_approx[test_i, test_j]  
             test_ratings = Z_test[test_i, test_j]
             rmse = np.sqrt(np.mean((pred_ratings - test_ratings) ** 2))
@@ -285,7 +285,7 @@ if __name__ == "__main__":
     pd.DataFrame(data).to_csv("test.csv", index=False)
 
 
-    Z = build_rating_matrix("test.csv", impute= True)
+    Z, user_map, movie_map = build_rating_matrix("test.csv", impute= True)
     print(Z)
 
 
