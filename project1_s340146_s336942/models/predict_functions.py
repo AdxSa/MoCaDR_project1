@@ -1,8 +1,7 @@
 import pandas as pd
-import numpy as np
 
 
-def predict_nmf(test_file, model_data):
+def predict_ratings(test_file, model_data):
     """
     Reads a test CSV with columns: userId, movieId.
     Uses the stored Z_approx, user_map, movie_map to produce predictions.
@@ -36,5 +35,3 @@ def predict_nmf(test_file, model_data):
             "rating": rating_rounded
         })
     return predictions
-
-
