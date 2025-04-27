@@ -45,28 +45,36 @@ def train_svd1_model(train_file, user_map=None, movie_map=None, r=14):
     print('train')
     return Z_approx, user_map, movie_map
 
-def sgd(Z, r, lr=0.01, n_epochs=1000, optimizer_name="SGD"):
+def train_sgd_model(train_file, user_map=None, movie_map=None, r=14, lam=0, lr=0.01, n_epochs=1000, optimizer_name="SGD"):
+    Z, user_map, movie_map = build_rating_matrix(train_file, user_map, movie_map)
     n, d = Z.shape
-    torch.manual_seed(42)
-    A = torch.randn(n, r, requires_grad=True)
+    W = torch.randn(n, r, requires_grad=True)
     H = torch.randn(r, d, requires_grad=True)
+    Z = torch.tensor(Z)
+    mask = (Z > 0).nonzero(as_tuple=True)
 
     if optimizer_name.lower() == "adam":
-        optimizer = torch.optim.Adam([A, H], lr=lr)
+        optimizer = torch.optim.Adam([W, H], lr=lr)
     elif optimizer_name.lower() == "sgd":
-        optimizer = torch.optim.SGD([A, H], lr=lr)
+        optimizer = torch.optim.SGD([W, H], lr=lr)
     else:
         raise ValueError("Unsupported optimizer")
 
     for epoch in range(n_epochs):
         optimizer.zero_grad()
-        Z_hat = A @ H
-        loss = torch.norm(Z - Z_hat, p=4)
+        Z_hat = W @ H
+        diff = (Z - Z_hat)[mask]
+        loss = torch.sum(diff ** 2) + lam * (torch.norm(W, 'fro') ** 2 + torch.norm(H, 'fro') ** 2)
+
         loss.backward()
-
         optimizer.step()
+    
+    W = W.detach()
+    H = H.detach()
 
-    return A.detach(), H.detach()
+    Z_approx = W @ H
+
+    return Z_approx, user_map, movie_map
 
 
 def train_svd2_model(train_file, user_map=None, movie_map=None, r=14, n_iter=3):

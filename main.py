@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 import torch
 from sklearn.metrics import root_mean_squared_error
-from project1_s340146_s336942.models.train_functions import train_nmf_model, train_svd1_model, train_svd2_model
+from project1_s340146_s336942.models.train_functions import train_nmf_model, train_svd1_model, train_svd2_model, train_sgd_model
 from project1_s340146_s336942.models.predict_functions import predict_ratings
 from project1_s340146_s336942.models.helper_functions import build_rating_matrix, split_data, optimal_r_finder
 from sklearn.decomposition import TruncatedSVD
@@ -155,6 +155,7 @@ class RecommenderSystem:
         print(self.Z)
         print(W @ H)
         return W @ H
+    
     def SVD1_predict(self, n_components=14):
         pass
 
@@ -162,7 +163,9 @@ class RecommenderSystem:
         pass
 
     def SGD(self):
-        pass
+        W, H = train_sgd_model(self.train_file, 12, 0)
+        print(W @ H)
+        return W @ H
 
     def predict(self):
         pass
