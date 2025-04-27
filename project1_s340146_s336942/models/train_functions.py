@@ -1,5 +1,5 @@
 import numpy as np
-import torch
+# import torch
 from sklearn.decomposition import NMF, TruncatedSVD
 from .helper_functions import build_rating_matrix
 
@@ -42,7 +42,7 @@ def train_svd1_model(train_file, user_map=None, movie_map=None, r=14):
     H = np.dot(Sigma2, VT)
     Z_approx = np.dot(W, H)
     # print(Z_approx)
-    print('train')
+    # print('train')
     return Z_approx, user_map, movie_map
 
 def train_sgd_model(train_file, user_map=None, movie_map=None, r=14, lam=0, lr=0.01, n_epochs=1000, optimizer_name="SGD"):

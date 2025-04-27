@@ -7,12 +7,13 @@ import os
 import pickle
 import pandas as pd
 import numpy as np
-import torch
+# import torch
 from sklearn.metrics import root_mean_squared_error
 from project1_s340146_s336942.models.train_functions import train_nmf_model, train_svd1_model, train_svd2_model, train_sgd_model
 from project1_s340146_s336942.models.predict_functions import predict_ratings
 from project1_s340146_s336942.models.helper_functions import build_rating_matrix, optimal_r_finder, optimal_lam_finder
 from sklearn.decomposition import TruncatedSVD
+from project1_s340146_s336942.models.plot_makers import plot_rmse
 
 
 # Tu zadeklarujemy zmienne globalne
@@ -209,8 +210,11 @@ def main():
         print(f"Training mode activated.  Algorithm = {alg}")
 
         # 2) find the best hyper‐param r
-        best_r, _ = optimal_r_finder(args.train_file, trainer, n_splits)
+        best_r, rmse_matrix = optimal_r_finder(args.train_file, trainer, n_splits)
         print(f" -> Best r = {best_r}")
+
+        plot_rmse(rmse_matrix, alg)
+
 
         Z_approx, user_map, movie_map = trainer(
             args.train_file,
@@ -247,10 +251,10 @@ def main():
 
 
 if __name__ == "__main__":
-    # main()
+    main()
     # # kf = split_data("project1_s340146_s336942/data/ratings.csv")
     #
-    a = RecommenderSystem()
-    a.load_data("project1_s340146_s336942/data/ratings.csv", "sample_test_with_ratings.csv")
+    # a = RecommenderSystem()
+    # a.load_data("project1_s340146_s336942/data/ratings.csv", "sample_test_with_ratings.csv")
     # a.SGD()
-    print(optimal_lam_finder("project1_s340146_s336942/data/ratings.csv", train_sgd_model))
+    # print(optimal_lam_finder("project1_s340146_s336942/data/ratings.csv", train_sgd_model))
