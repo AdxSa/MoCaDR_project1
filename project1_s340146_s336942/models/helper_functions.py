@@ -189,32 +189,33 @@ def optimal_lam_finder(file, method, r=14, n_splits=10):
     user_map = {uid: i for i, uid in enumerate(sorted(unique_users))}
     unique_movies = df["movieId"].unique()
     movie_map = {mid: j for j, mid in enumerate(sorted(unique_movies))}
-    lam_list = np.arange(0, 5, 100)
+    lam_list = np.linspace(0, 5, 50)
 
     train_dfs, test_dfs = split_data(file, n_splits=n_splits)
     # print("data splited")
 
-    RMSE_matrix = np.zeros((n_splits, 20), dtype=np.float32)
+    RMSE_matrix = np.zeros((n_splits, len(lam_list)), dtype=np.float32)
 
     for fold, (train_df, test_df) in enumerate(zip(train_dfs, test_dfs)):
         RMSE_list = []
 
         Z_test, _, _ = build_rating_matrix(test_df, user_map, movie_map, impute=False)
-        Z_test = torch.tensor(Z_test)
+        # Z_test = torch.tensor(Z_test)
 
         # for r in range(1, min(Z.shape[0], Z.shape[1]) + 1):
         for lam in lam_list:
             Z_approx, _, _ = method(train_df, user_map, movie_map, lam=lam)
             # print("Z approximated")
+            Z_approx = np.array(Z_approx)
 
             test_i, test_j = np.where(Z_test != 0)
             true_val = Z_test[test_i, test_j]
             approxed_val = Z_approx[test_i, test_j]
 
-            rmse = torch.sqrt(torch.mean((true_val - approxed_val) ** 2))
+            rmse = np.sqrt(np.mean((true_val - approxed_val) ** 2))
 
             RMSE_list.append(rmse)
-            print(f"lambda={lam}, fold = {fold}, rmse = {rmse}")
+            print(f"lambda={lam}, fold = {fold + 1}, rmse = {rmse}")
         RMSE_matrix[fold,] = RMSE_list
     RMSE_mean = RMSE_matrix.mean(axis=0)
     lam_best = np.argmin(RMSE_mean) 
