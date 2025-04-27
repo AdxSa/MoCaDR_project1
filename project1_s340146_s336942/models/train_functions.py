@@ -45,7 +45,7 @@ def train_svd1_model(train_file, user_map=None, movie_map=None, r=14):
     # print('train')
     return Z_approx, user_map, movie_map
 
-def train_sgd_model(train_file, user_map=None, movie_map=None, r=14, lam=0, lr=0.01, n_epochs=1000, optimizer_name="SGD"):
+def train_sgd_model(train_file, user_map=None, movie_map=None, r=14, lam=0, lr=0.0001, n_epochs=1000, optimizer_name="sgd"):
     Z, user_map, movie_map = build_rating_matrix(train_file, user_map, movie_map)
     n, d = Z.shape
     W = torch.randn(n, r, requires_grad=True)
@@ -62,13 +62,15 @@ def train_sgd_model(train_file, user_map=None, movie_map=None, r=14, lam=0, lr=0
 
     for epoch in range(n_epochs):
         optimizer.zero_grad()
+        # print(W)
         Z_hat = W @ H
         diff = (Z - Z_hat)[mask]
+        # print(diff)
         loss = torch.sum(diff ** 2) + lam * (torch.norm(W, 'fro') ** 2 + torch.norm(H, 'fro') ** 2)
 
         loss.backward()
         optimizer.step()
-    
+
     W = W.detach()
     H = H.detach()
 
