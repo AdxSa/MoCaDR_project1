@@ -7,6 +7,7 @@ import os
 import pickle
 import pandas as pd
 import numpy as np
+import torch
 from sklearn.metrics import root_mean_squared_error
 from project1_s340146_s336942.models.train_functions import train_nmf_model, train_svd1_model
 from project1_s340146_s336942.models.predict_functions import predict_nmf

@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import torch
 from sklearn.decomposition import NMF, TruncatedSVD
 from .helper_functions import build_rating_matrix
 
@@ -70,3 +71,26 @@ def train_svd1_model(train_file, r):
     # print(Z_approx)
     print('train')
     return Z_approx, user_map, movie_map
+
+def sgd(Z, r, lr=0.01, n_epochs=1000, optimizer_name="SGD"):
+    n, d = Z.shape
+    torch.manual_seed(42)
+    A = torch.randn(n, r, requires_grad=True)
+    H = torch.randn(r, d, requires_grad=True)
+
+    if optimizer_name.lower() == "adam":
+        optimizer = torch.optim.Adam([A, H], lr=lr)
+    elif optimizer_name.lower() == "sgd":
+        optimizer = torch.optim.SGD([A, H], lr=lr)
+    else:
+        raise ValueError("Unsupported optimizer")
+
+    for epoch in range(n_epochs):
+        optimizer.zero_grad()
+        Z_hat = A @ H
+        loss = torch.norm(Z - Z_hat, p=4)
+        loss.backward()
+
+        optimizer.step()
+
+    return A.detach(), H.detach()
