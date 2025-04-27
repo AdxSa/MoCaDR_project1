@@ -11,7 +11,7 @@ import torch
 from sklearn.metrics import root_mean_squared_error
 from project1_s340146_s336942.models.train_functions import train_nmf_model, train_svd1_model, train_svd2_model, train_sgd_model
 from project1_s340146_s336942.models.predict_functions import predict_ratings
-from project1_s340146_s336942.models.helper_functions import build_rating_matrix, split_data, optimal_r_finder
+from project1_s340146_s336942.models.helper_functions import build_rating_matrix, optimal_r_finder, optimal_lam_finder
 from sklearn.decomposition import TruncatedSVD
 
 
@@ -247,10 +247,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # main()
     # # kf = split_data("project1_s340146_s336942/data/ratings.csv")
     #
-    # a = RecommenderSystem()
-    # a.load_data("project1_s340146_s336942/data/ratings.csv", "sample_test_with_ratings.csv")
-    # a.train_SVD1()
-    # # print(optimal_r_finder("project1_s340146_s336942/data/ratings.csv", train_nmf_model))
+    a = RecommenderSystem()
+    a.load_data("project1_s340146_s336942/data/ratings.csv", "sample_test_with_ratings.csv")
+    # a.SGD()
+    print(optimal_lam_finder("project1_s340146_s336942/data/ratings.csv", train_sgd_model))

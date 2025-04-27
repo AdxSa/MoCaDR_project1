@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import KFold
-from train_functions import train_sgd_model
+import torch
 
 
 def weighted_imputation(Z):
@@ -183,7 +183,7 @@ from scipy.stats import uniform
 
 #     best_param_random = random_search.best_params_['lam']
 
-def optimal_lam_finder(file, r, n_splits=10):
+def optimal_lam_finder(file, method, r=14, n_splits=10):
     df = pd.read_csv(file)
     unique_users = df["userId"].unique()
     user_map = {uid: i for i, uid in enumerate(sorted(unique_users))}
@@ -200,17 +200,18 @@ def optimal_lam_finder(file, r, n_splits=10):
         RMSE_list = []
 
         Z_test, _, _ = build_rating_matrix(test_df, user_map, movie_map, impute=False)
+        Z_test = torch.tensor(Z_test)
 
         # for r in range(1, min(Z.shape[0], Z.shape[1]) + 1):
         for lam in lam_list:
-            Z_approx, _, _ = train_sgd_model(train_df, user_map, movie_map, lam=lam)
+            Z_approx, _, _ = method(train_df, user_map, movie_map, lam=lam)
             # print("Z approximated")
 
             test_i, test_j = np.where(Z_test != 0)
             true_val = Z_test[test_i, test_j]
             approxed_val = Z_approx[test_i, test_j]
 
-            rmse = np.sqrt(np.mean((true_val - approxed_val) ** 2))
+            rmse = torch.sqrt(torch.mean((true_val - approxed_val) ** 2))
 
             RMSE_list.append(rmse)
             print(f"lambda={lam}, fold = {fold}, rmse = {rmse}")
