@@ -1,5 +1,5 @@
 import numpy as np
-# import torch
+import torch
 from sklearn.decomposition import NMF, TruncatedSVD
 from .helper_functions import build_rating_matrix
 
@@ -45,11 +45,23 @@ def train_svd1_model(train_file, user_map=None, movie_map=None, r=14):
     # print('train')
     return Z_approx, user_map, movie_map
 
-def train_sgd_model(train_file, user_map=None, movie_map=None, r=14, lam=0, lr=0.0001, n_epochs=1000, optimizer_name="sgd"):
+def train_sgd_model(train_file, user_map=None, movie_map=None, r=14, lam=0, lr=25, n_epochs=1000, optimizer_name="sgd"):
+    print(optimizer_name)
     Z, user_map, movie_map = build_rating_matrix(train_file, user_map, movie_map)
     n, d = Z.shape
-    W = torch.randn(n, r, requires_grad=True)
-    H = torch.randn(r, d, requires_grad=True)
+
+    std = 0.01
+    W = torch.randn(n, r) * std
+    H = torch.randn(r, d) * std
+
+    W.requires_grad_(True)
+    H.requires_grad_(True)
+
+    # test_i, test_j = np.where(Z != 0)
+    # true_val = Z[test_i, test_j]
+
+
+    # true_val = torch.tensor(true_val)
     Z = torch.tensor(Z)
     mask = (Z > 0).nonzero(as_tuple=True)
 
@@ -64,15 +76,24 @@ def train_sgd_model(train_file, user_map=None, movie_map=None, r=14, lam=0, lr=0
         optimizer.zero_grad()
         # print(W)
         Z_hat = W @ H
-        diff = (Z - Z_hat)[mask]
+        # approxed_val = Z_hat[test_i, test_j]
+        # diff = (true_val-approxed_val)
+        diff = (Z_hat - Z)[mask]
         # print(diff)
-        loss = torch.sum(diff ** 2) + lam * (torch.norm(W, 'fro') ** 2 + torch.norm(H, 'fro') ** 2)
+
+        # loss = torch.sum(diff ** 2) + lam * (torch.norm(W, 'fro') ** 2 + torch.norm(H, 'fro') ** 2)
+        mse = (diff ** 2).mean()
+        reg = lam * (W.norm() ** 2 + H.norm() ** 2)
+        loss = mse + reg
+
+        if epoch % 10 == 0:
+            print(f"Epoch {epoch:4d}  loss = {loss.item():.4f}")
 
         loss.backward()
         optimizer.step()
 
-    W = W.detach()
-    H = H.detach()
+    W = W.detach().numpy()
+    H = H.detach().numpy()
 
     Z_approx = W @ H
 

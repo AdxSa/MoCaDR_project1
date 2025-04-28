@@ -20,8 +20,12 @@ def weighted_imputation(Z):
     mask = (Z == 0)               # missing entries
 
     # 1) weights
-    user_weights = np.count_nonzero(~mask, axis=1)  # shape (n_users,)
-    movie_weights = np.count_nonzero(~mask, axis=0)  # shape (n_movies,)
+    user_count = np.count_nonzero(~mask, axis=1)  # shape (n_users,)
+    movie_count = np.count_nonzero(~mask, axis=0)  # shape (n_movies,)
+
+    ##new - logarithmic weights
+    user_weights = np.log1p(user_count)
+    movie_weights = np.log1p(movie_count)
 
     # 2) medians (fall back to 0 if no nonzeros)
     user_medians = np.array([
@@ -56,11 +60,45 @@ def weighted_imputation(Z):
     # 6) apply only to missing entries
     Z[mask] = fill[mask]
 
-    # 7) final rounding to nearest 0.5
-    return np.round(Z * 2) / 2
+    return Z
+
+
+def impute_global_mean(Z):
+    """Fill missing entries with the global mean of observed ratings."""
+    Z0 = Z.copy().astype(float)
+    mask = (Z0 == 0)
+    vals = Z0[~mask]
+    m = vals.mean() if vals.size else 0.0
+    Z0[mask] = m
+    return Z0
+
+def impute_user_mean(Z):
+    """Fill missing entries by each user's mean rating."""
+    Z0 = Z.copy().astype(float)
+    mask = (Z0 == 0)
+    # compute user means (0 if no ratings)
+    user_means = np.array([
+        Z0[i, :][~mask[i]].mean() if np.any(~mask[i]) else 0.0
+        for i in range(Z0.shape[0])
+    ])
+    # broadcast
+    Z0[mask] = user_means[:][mask]
+    return Z0
+
+def impute_movie_mean(Z):
+    """Fill missing entries by each movie's mean rating."""
+    Z0 = Z.copy().astype(float)
+    mask = (Z0 == 0)
+    movie_means = np.array([
+        Z0[:, j][~mask[:, j]].mean() if np.any(~mask[:, j]) else 0.0
+        for j in range(Z0.shape[1])
+    ])
+    Z0[mask] = movie_means[None, :][mask]
+    return Z0
 
 
 def build_rating_matrix(train_file, user_map=None, movie_map=None, impute=False):
+
     """
     Reads a ratings CSV file with columns: userId, movieId, rating.
     Builds and returns the user–movie matrix Z (missing entries set to 0),
@@ -74,6 +112,7 @@ def build_rating_matrix(train_file, user_map=None, movie_map=None, impute=False)
       - user_map (dict): Mapping from userId to row index.
       - movie_map (dict): Mapping from movieId to column index.
     """
+
     if isinstance(train_file, str):
         df = pd.read_csv(train_file)
     else:
@@ -92,6 +131,7 @@ def build_rating_matrix(train_file, user_map=None, movie_map=None, impute=False)
 
     # Build matrix Z with zeros for missing ratings
     Z = np.zeros((n_users, n_movies), dtype=np.float32)
+
     for row in df.itertuples():
         i = user_map[row.userId]
         j = movie_map[row.movieId]
@@ -100,6 +140,11 @@ def build_rating_matrix(train_file, user_map=None, movie_map=None, impute=False)
     # print('build')
     if impute:
         Z = weighted_imputation(Z)
+        # Z = impute_zero(Z)
+        # Z = impute_global_mean(Z)
+        # Z = impute_user_mean(Z)
+        # Z = impute_movie_mean(Z)
+
     return Z, user_map, movie_map
 
 
@@ -121,7 +166,7 @@ def split_data(file, n_splits=5):
     return train_dfs, test_dfs
 
 
-def optimal_r_finder(file, method, n_splits=10):
+def optimal_r_finder(file, method, n_splits=5):
     df = pd.read_csv(file)
     unique_users = df["userId"].unique()
     user_map = {uid: i for i, uid in enumerate(sorted(unique_users))}
