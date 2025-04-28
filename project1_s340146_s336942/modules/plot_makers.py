@@ -1,6 +1,9 @@
 import matplotlib.pyplot as plt
 import os
 import numpy as np
+from .impute_functions import *
+from .train_functions import *
+from .helper_functions import optimal_r_finder
 
 #   NMF
 
@@ -55,3 +58,67 @@ def plot_rmse(rmse_matrix, alg, folder_path = "plots"):
     print(f"Boxplot saved to {save_path}")
 
 
+def plot_impute_diff(train_file, r, folder_path = "plots", n_splits = 1):
+    ALGORITHMS = {
+        "NMF": {
+            "trainer": train_nmf_model,
+            "train_kwargs": {"init": "nndsvda", "max_iter": 3000}
+        },
+        "SVD1": {
+            "trainer": train_svd1_model,
+            "train_kwargs": {}
+        },
+        "SVD2": {
+            "trainer": train_svd2_model,
+            "train_kwargs": {"n_iter": 10}
+        },
+        "SGD": {
+            "trainer": train_sgd_model,
+            "train_kwargs": {"lam": 0.1, "lr": 0.01, "n_epochs": 5000, "optimizer_name": "adam"}
+        },
+    }
+
+    os.makedirs(folder_path, exist_ok=True)
+    for r in range(1,16):
+        for alg, entry in ALGORITHMS:
+
+            trainer = entry["trainer"]
+            extra_kw = entry.get("train_kwargs", {})
+
+            Z_approx, user_map, movie_map = trainer(
+                train_file,
+                r=r,
+                **extra_kw
+            )
+            best_r, rmse_matrix = optimal_r_finder(train_file, trainer, n_splits)
+            plot_rmse(rmse_matrix, alg)
+            rmse_means = rmse_matrix.mean(axis=0)
+
+
+
+            plt.figure(figsize=(12, 6))
+            plt.plot(
+                range(len(rmse_means)),
+                rmse_means
+            )
+
+            plt.title(f"RMSE per r for {alg} with imputation", fontsize=14, pad=15)
+            plt.xlabel("Number of components (r)", labelpad=10)
+            plt.ylabel("RMSE", labelpad=10)
+            # plt.xticks(rotation=90)
+            plt.grid(axis="y", linestyle="--", alpha=0.4)
+            plt.tight_layout()
+
+            plt.axvline(
+                best_idx + 1,
+                color='red',
+                linestyle='--',
+                linewidth=1.5,
+                label=f'Best r = {best_idx + 1}'
+            )
+
+            save_path = os.path.join(folder_path, f"boxplot_{alg}.png")
+            plt.savefig(save_path)
+            plt.close()
+
+            print(f"Plot saved to {save_path}")

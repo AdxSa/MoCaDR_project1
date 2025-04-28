@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from sklearn.decomposition import NMF, TruncatedSVD
-from .helper_functions import build_rating_matrix
+from .helper_functions import build_rating_matrix, weighted_imputation
 
 
 def train_nmf_model(train_file, user_map=None, movie_map=None, r=5, init='nndsvda', max_iter=3000):
@@ -18,7 +18,7 @@ def train_nmf_model(train_file, user_map=None, movie_map=None, r=5, init='nndsvd
       - user_map (dict): Mapping from userId to row index.
       - movie_map (dict): Mapping from movieId to column index.
     """
-    Z, user_map, movie_map = build_rating_matrix(train_file, user_map, movie_map, impute=True)
+    Z, user_map, movie_map = build_rating_matrix(train_file, user_map, movie_map, impute=weighted_imputation)
 
     model = NMF(n_components=r, init=init, max_iter=max_iter, random_state=42)
 
@@ -32,7 +32,7 @@ def train_nmf_model(train_file, user_map=None, movie_map=None, r=5, init='nndsvd
 
 def train_svd1_model(train_file, user_map=None, movie_map=None, r=14):
 
-    Z, user_map, movie_map = build_rating_matrix(train_file, user_map, movie_map, impute=True)
+    Z, user_map, movie_map = build_rating_matrix(train_file, user_map, movie_map, impute=weighted_imputation)
     svd = TruncatedSVD(n_components=r, random_state=42)
     svd.fit(Z)
     Sigma2 = np.diag(svd.singular_values_)
@@ -100,7 +100,7 @@ def train_sgd_model(train_file, user_map=None, movie_map=None, r=14, lam=0, lr=2
     return Z_approx, user_map, movie_map
 
 
-def train_svd2_model(train_file, user_map=None, movie_map=None, r=14, n_iter=3):
+def train_svd2_model(train_file, user_map=None, movie_map=None, r=14, n_iter=3, impute=weighted_imputation):
     """
     SVD2: iterative scheme
       Z_with_zeros = original matrix (0 where missing)

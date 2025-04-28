@@ -9,11 +9,11 @@ import pandas as pd
 import numpy as np
 # import torch
 from sklearn.metrics import root_mean_squared_error
-from project1_s340146_s336942.models.train_functions import train_nmf_model, train_svd1_model, train_svd2_model, train_sgd_model
-from project1_s340146_s336942.models.predict_functions import predict_ratings
-from project1_s340146_s336942.models.helper_functions import optimal_r_finder, optimal_lam_finder
+from project1_s340146_s336942.modules.train_functions import train_nmf_model, train_svd1_model, train_svd2_model, train_sgd_model
+from project1_s340146_s336942.modules.predict_functions import predict_ratings
+from project1_s340146_s336942.modules.helper_functions import optimal_r_finder, optimal_lam_finder
 from sklearn.decomposition import TruncatedSVD
-from project1_s340146_s336942.models.plot_makers import plot_rmse
+from project1_s340146_s336942.modules.plot_makers import plot_rmse
 
 
 # Tu zadeklarujemy zmienne globalne
