@@ -76,6 +76,7 @@ def plot_impute_diff(train_file, alg_name, alg, alg_atr ,folder_path = "plots", 
             r_p, rmse_matrix_p = r, rmse_matrix
     plt.title(f"RMSE comparison for {alg_name} with different imputation methods")
     plt.legend(loc='upper right')
+    plt.xticks(np.arange(0, 21, step=1))
     save_path = os.path.join(folder_path, f"impute_{alg_name}.png")
     plt.savefig(save_path)
     plt.close()

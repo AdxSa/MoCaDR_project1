@@ -90,14 +90,14 @@ def optimal_r_finder(train_file, method, n_splits=10, sr = 20, ekw = {}):
         RMSE_list = []
 
         Z_test, _, _ = build_rating_matrix(test_df, user_map, movie_map, impute=False)
-
+        test_i, test_j = np.nonzero(Z_test)
+        true_val = Z_test[test_i, test_j]
         # for r in range(1, min(Z.shape[0], Z.shape[1]) + 1):
         for r in range(1, sr+1):
             Z_approx, _, _ = method(train_df, user_map, movie_map, r, **ekw)
             # print("Z approximated")
 
-            test_i, test_j = np.where(Z_test != 0)
-            true_val = Z_test[test_i, test_j]
+
             approxed_val = Z_approx[test_i, test_j]
 
             rmse = np.sqrt(np.mean((true_val - approxed_val) ** 2))
@@ -111,67 +111,103 @@ def optimal_r_finder(train_file, method, n_splits=10, sr = 20, ekw = {}):
     return r_best, RMSE_matrix
 
 
+def optimal_sgd_hyperparams(train_file,
+                            method,
+                            n_splits=10,
+                            sr=20,
+                            ekw={}):
+    """
+    Grid‐search over ranks and regularizations for SGD-based MF.
+
+    Returns:
+      best_r:    rank with lowest CV RMSE
+      best_lam:  lambda  with lowest CV RMSE
+      cv_errors: dict mapping (r,lam) -> mean RMSE over folds
+    """
+    r_list = np.arange(1, sr+1, 1)
+    lam_list = np.array([0, 0.01, 0.1, 1])
+    # lam_list = [0]
+    # lam_list = np.array([0,1,10,100,1000])
+    df = pd.read_csv(train_file)
+    unique_users = df["userId"].unique()
+    user_map = {uid: i for i, uid in enumerate(sorted(unique_users))}
+    unique_movies = df["movieId"].unique()
+    movie_map = {mid: j for j, mid in enumerate(sorted(unique_movies))}
+
+    train_dfs, test_dfs = split_data(train_file, n_splits=n_splits)
+
+    cv_errors = {(r, lam): [] for r in r_list for lam in lam_list}
+
+    # For each fold: train on train_idx, test on test_idx
+    for fold, (train_df, test_df) in enumerate(zip(train_dfs, test_dfs)):
+
+        # Build the test‐matrix once per fold
+        Z_test, _, _ = build_rating_matrix(test_df, user_map, movie_map, impute=False)
+        test_i, test_j = np.nonzero(Z_test)
+        true_val = Z_test[test_i, test_j]
+
+        for r in r_list:
+            for lam in lam_list:
+                # Train on the fold’s training split
+                Z_approx, _, _ = method(train_df, user_map, movie_map, r, lam=lam, **ekw)
+
+                approxed_val = Z_approx[test_i, test_j]
+
+                rmse = np.sqrt(np.mean((true_val - approxed_val) ** 2))
+                cv_errors[(r, lam)].append(rmse)
+
+                print(f"Fold {fold + 1}/{n_splits} | r={r} lam={lam:.3f} → RMSE={rmse:.4f}")
+
+    # Compute mean RMSE for each (r, lam)
+    mean_errors = {k: np.mean(v) for k, v in cv_errors.items()}
+    best_r, best_lam = min(mean_errors, key=mean_errors.get)
+
+    columns = list(cv_errors.values())
+    RMSE_mean = np.column_stack(columns)
+
+    print(f"\nBest pair: r = {best_r}, lam = {best_lam:.3f}  (CV RMSE = {mean_errors[(best_r, best_lam)]:.4f})")
+    print(RMSE_mean)
+    return (best_r, best_lam), RMSE_mean
 
 
-# def optimal_lam_finder(file, r, n_splits=10):
+# def optimal_lam_finder(file, method, r=14, n_splits=10):
 #     df = pd.read_csv(file)
 #     unique_users = df["userId"].unique()
 #     user_map = {uid: i for i, uid in enumerate(sorted(unique_users))}
 #     unique_movies = df["movieId"].unique()
 #     movie_map = {mid: j for j, mid in enumerate(sorted(unique_movies))}
-
+#     lam_list = np.linspace(0, 5, 50)
+#
 #     train_dfs, test_dfs = split_data(file, n_splits=n_splits)
 #     # print("data splited")
-#     param_dist = {'lam': uniform(0, 5)}
-
-#     # Create a RandomizedSearchCV object with 100 iterations
-#     random_search = RandomizedSearchCV(train_sgd_model(), param_dist, cv=n_splits, scoring='neg_root_mean_squared_error',
-#                                     n_iter=100, random_state=42)
-#     random_search.fit(x_train, y_train)
-
-#     print("RandomizedSearchCV best lambda:", random_search.best_params_['lam'])
-#     print("RandomizedSearchCV best CV MSE:", -random_search.best_score_)
-
-#     best_param_random = random_search.best_params_['lam']
-
-def optimal_lam_finder(file, method, r=14, n_splits=10):
-    df = pd.read_csv(file)
-    unique_users = df["userId"].unique()
-    user_map = {uid: i for i, uid in enumerate(sorted(unique_users))}
-    unique_movies = df["movieId"].unique()
-    movie_map = {mid: j for j, mid in enumerate(sorted(unique_movies))}
-    lam_list = np.linspace(0, 5, 50)
-
-    train_dfs, test_dfs = split_data(file, n_splits=n_splits)
-    # print("data splited")
-
-    RMSE_matrix = np.zeros((n_splits, len(lam_list)), dtype=np.float32)
-
-    for fold, (train_df, test_df) in enumerate(zip(train_dfs, test_dfs)):
-        RMSE_list = []
-
-        Z_test, _, _ = build_rating_matrix(test_df, user_map, movie_map, impute=False)
-        # Z_test = torch.tensor(Z_test)
-
-        # for r in range(1, min(Z.shape[0], Z.shape[1]) + 1):
-        for lam in lam_list:
-            Z_approx, _, _ = method(train_df, user_map, movie_map, lam=lam)
-            # print("Z approximated")
-            Z_approx = np.array(Z_approx)
-
-            test_i, test_j = np.where(Z_test != 0)
-            true_val = Z_test[test_i, test_j]
-            approxed_val = Z_approx[test_i, test_j]
-
-            rmse = np.sqrt(np.mean((true_val - approxed_val) ** 2))
-
-            RMSE_list.append(rmse)
-            print(f"lambda={lam}, fold = {fold + 1}, rmse = {rmse}")
-        RMSE_matrix[fold,] = RMSE_list
-    RMSE_mean = RMSE_matrix.mean(axis=0)
-    lam_best = np.argmin(RMSE_mean) 
-    print(lam_best)
-    return lam_best, RMSE_matrix
+#
+#     RMSE_matrix = np.zeros((n_splits, len(lam_list)), dtype=np.float32)
+#
+#     for fold, (train_df, test_df) in enumerate(zip(train_dfs, test_dfs)):
+#         RMSE_list = []
+#
+#         Z_test, _, _ = build_rating_matrix(test_df, user_map, movie_map, impute=False)
+#         # Z_test = torch.tensor(Z_test)
+#
+#         # for r in range(1, min(Z.shape[0], Z.shape[1]) + 1):
+#         for lam in lam_list:
+#             Z_approx, _, _ = method(train_df, user_map, movie_map, lam=lam)
+#             # print("Z approximated")
+#             Z_approx = np.array(Z_approx)
+#
+#             test_i, test_j = np.where(Z_test != 0)
+#             true_val = Z_test[test_i, test_j]
+#             approxed_val = Z_approx[test_i, test_j]
+#
+#             rmse = np.sqrt(np.mean((true_val - approxed_val) ** 2))
+#
+#             RMSE_list.append(rmse)
+#             print(f"lambda={lam}, fold = {fold + 1}, rmse = {rmse}")
+#         RMSE_matrix[fold,] = RMSE_list
+#     RMSE_mean = RMSE_matrix.mean(axis=0)
+#     lam_best = np.argmin(RMSE_mean)
+#     print(lam_best)
+#     return lam_best, RMSE_matrix
 
 
 if __name__ == "__main__":

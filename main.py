@@ -11,7 +11,7 @@ import numpy as np
 from sklearn.metrics import root_mean_squared_error
 from project1_s340146_s336942.modules.train_functions import train_nmf_model, train_svd1_model, train_svd2_model, train_sgd_model
 from project1_s340146_s336942.modules.predict_functions import predict_ratings
-from project1_s340146_s336942.modules.helper_functions import optimal_r_finder, optimal_lam_finder
+from project1_s340146_s336942.modules.helper_functions import optimal_r_finder, optimal_sgd_hyperparams
 from sklearn.decomposition import TruncatedSVD
 from project1_s340146_s336942.modules.plot_functions import plot_rmse,plot_impute_diff
 from project1_s340146_s336942.modules.impute_functions import *
@@ -20,18 +20,18 @@ from project1_s340146_s336942.modules.impute_functions import *
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description="Simple NMF-based Recommender")
+    parser = argparse.ArgumentParser(description="simple recommender system")
     parser.add_argument("--train", type=str, default="no",
                         help="Train mode: 'yes' to train NMF model, 'no' otherwise.")
     parser.add_argument("--predict", type=str, default="no",
                         help="Predict mode: 'yes' to predict ratings, 'no' otherwise.")
-    parser.add_argument("--train_file", type=str, default="data/ratings.csv",
+    parser.add_argument("--train_file", type=str, default="project1_s340146_s336942/data/ratings.csv",
                         help="CSV file with training data (userId,movieId,rating).")
-    parser.add_argument("--test_file", type=str, default="data/test_file.csv",
+    parser.add_argument("--input_file", type=str, default="pred.csv",
                         help="CSV file with (userId,movieId) for predictions.")
-    parser.add_argument("--model_path", type=str, default="models_trained/nmf_model.pkl",
+    parser.add_argument("--model_path", type=str, default="project1_s340146_s336942/models_trained/all_models.pkl",
                         help="Path to save/load the trained NMF model.")
-    parser.add_argument("--output_file", type=str, default="predictions/preds.csv",
+    parser.add_argument("--output_file", type=str, default="project1_s340146_s336942/results/preds.csv",
                         help="Where to save predictions.")
     parser.add_argument("--alg", type=str, default="ALL",
                         help="Algorithm to use.")
@@ -51,29 +51,39 @@ def main():
     predict_mode = (args.predict.lower() == "yes")
 
     ALGORITHMS = {
+        "ALL": {
+            "NMF":"NMF",
+            "SVD1":"SVD1",
+            "SVD2":"SVD2",
+            "SGD":"SGD"
+        },
         "NMF": {
+            "hp_finder": optimal_r_finder,
             "method": train_nmf_model,
             "n_splits": 10,
             "sr": 20,
-            "train_kwargs": {"init": "nndsvda", "max_iter": 3000, "impute": weighted_imputation}
+            "train_kwargs": {"init": "nndsvda", "max_iter": 1000, "impute": weighted_imputation}
         },
         "SVD1": {
+            "hp_finder": optimal_r_finder,
             "method": train_svd1_model,
             "n_splits": 10,
             "sr": 20,
             "train_kwargs": {"impute": weighted_imputation}
         },
         "SVD2": {
+            "hp_finder": optimal_r_finder,
             "method": train_svd2_model,
             "n_splits": 10,
             "sr": 20,
             "train_kwargs": {"impute": weighted_imputation, "n_iter": 5}
         },
         "SGD": {
+            "hp_finder": optimal_sgd_hyperparams,
             "method": train_sgd_model,
-            "n_splits": 2,
+            "n_splits": 10,
             "sr": 20,
-            "train_kwargs": {"lam": 0.1, "lr": 0.01, "n_epochs": 1000, "optimizer_name": "adam"}
+            "train_kwargs": { "lr": 0.01, "n_epochs": 50, "optimizer_name": "adam"}
         },
     }
 
@@ -81,43 +91,64 @@ def main():
         print(f"--alg {args.alg.upper()} is not implemented in project.")
         return
 
+
+
     if train_mode:
-        alg = args.alg.upper()
-        entry = ALGORITHMS[alg]
-        method = entry["method"]
-        n_splits = entry["n_splits"]
-        sr = entry["sr"]
-        extra_kw = entry.get("train_kwargs", {})
+        def training_time(alg):
+            entry = ALGORITHMS[alg]
+            method = entry["method"]
+            n_splits = entry["n_splits"]
+            sr = entry["sr"]
+            hp_finder = entry["hp_finder"]
+            extra_kw = entry.get("train_kwargs", {})
 
-        print(f"Training mode activated.  Algorithm = {alg}")
+            print(f"Training mode activated.  Algorithm = {alg}")
 
-        if not args.r:
-            if args.print_impute_plot.lower() == "yes":
-                r, rmse_matrix = plot_impute_diff(args.train_file, alg, method , extra_kw, n_splits=n_splits, sr=sr)
-            else:
-                print(f"Searching for optimal r parameter")
-                r, rmse_matrix = optimal_r_finder(args.train_file, method, n_splits, sr, ekw=extra_kw)
-                print(f" -> Best r = {r}")
+            if not args.r:
+                if args.print_impute_plot.lower() == "yes":
+                    best_hyper, rmse_matrix = plot_impute_diff(args.train_file, alg, method, extra_kw,
+                                                               n_splits=n_splits, sr=sr)
+
+                else:
+                    print(f"Searching for optimal r parameter")
+                    # r, rmse_matrix = optimal_r_finder(args.train_file, method, n_splits, sr, ekw=extra_kw)
+                    best_hyper, rmse_matrix = hp_finder(args.train_file, method, n_splits, sr, ekw=extra_kw)
+                print(f" -> Best hyperparameters = {best_hyper}")
                 print(min(rmse_matrix.mean(axis=0)))
-            if args.print_rmse_plots.lower()=="yes":
-                plot_rmse(rmse_matrix, alg)
-        else: r = args.r
+                if args.print_rmse_plots.lower() == "yes":
+                    plot_rmse(rmse_matrix, alg)
+            else:
+                r = args.r
 
-        Z_approx, user_map, movie_map = method(
-            args.train_file,
-            r=r,
-            **extra_kw
-        )
-        model_data = {
-            "Z_approx": Z_approx,
-            "user_map": user_map,
-            "movie_map": movie_map
-        }
+            if alg == "SGD":
+                best_hyper = {"r": best_hyper[0], "lam": best_hyper[1]}
+            else: best_hyper = {"r": best_hyper}
+
+            Z_approx, user_map, movie_map = method(
+                args.train_file,
+                **best_hyper,
+                **extra_kw
+            )
+            model_data = {
+                "Z_approx": Z_approx,
+                "user_map": user_map,
+                "movie_map": movie_map
+            }
+
+            return model_data
+
+        if args.alg.upper() =="ALL":
+            all_model_data = {}
+            for alg in ALGORITHMS["ALL"]:
+                all_model_data[alg] = training_time(alg)
+        else: all_model_data = training_time(args.alg.upper())
+
         os.makedirs(os.path.dirname(args.model_path), exist_ok=True)
         with open(args.model_path, "wb") as f:
-            pickle.dump(model_data, f)
+            pickle.dump(all_model_data, f)
 
         print(f"Model saved to {args.model_path}")
+
 
     if predict_mode:
         print("Prediction mode activated.")

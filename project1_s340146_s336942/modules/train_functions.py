@@ -43,16 +43,52 @@ def train_svd1_model(train_file, user_map=None, movie_map=None, r=14, impute=wei
 
     return Z_approx, user_map, movie_map
 
+
+def train_svd2_model(train_file, user_map=None, movie_map=None, r=14, impute=weighted_imputation, n_iter=3):
+    """
+    SVD2: iterative scheme
+      Z_with_zeros = original matrix (0 where missing)
+      Z_approx     = weighted‐imputed start
+      repeat n_iter times:
+        1) low‐rank SVD of Z_approx
+        2) reconstruct Z_approx = W @ H
+        3) re‐inject original (non‐zero) ratings into Z_approx
+    """
+    Z_with_zeros, user_map, movie_map = build_rating_matrix(train_file, user_map, movie_map)
+    Z_approx, _, _ = build_rating_matrix(train_file, user_map, movie_map, impute=impute)
+
+    not_missing = (Z_with_zeros != 0)
+
+    for t in range(n_iter):
+
+        svd = TruncatedSVD(n_components=r, random_state=42)
+
+        svd.fit(Z_approx)
+        Sigma2 = np.diag(svd.singular_values_)
+        VT = svd.components_
+
+        W = svd.transform(Z_approx) / svd.singular_values_
+        H = np.dot(Sigma2, VT)
+        Z_approx = np.dot(W, H)
+
+        Z_approx[not_missing] = Z_with_zeros[not_missing]
+
+        # optional debug
+        # rmse_known = np.sqrt(np.mean((Z_with_zeros[not_missing] -
+        #                              Z_approx[not_missing])**2))
+        # print(f"[SVD2] iter {t+1}/{n_iter}: RMSE on known = {rmse_known:.4f}")
+
+    return Z_approx, user_map, movie_map
+
+
 def train_sgd_model(train_file, user_map=None, movie_map=None, r=1, lam=0, lr=0.01, n_epochs=1000, optimizer_name="sgd"):
 
     Z, user_map, movie_map = build_rating_matrix(train_file, user_map, movie_map)
     n, d = Z.shape
 
-    std = 0.01
     torch.manual_seed(42)
-    W = torch.randn(n, r) * std
-    H = torch.randn(r, d) * std
-
+    W = torch.rand(n, r)
+    H = torch.rand(r, d)
     W.requires_grad_(True)
     H.requires_grad_(True)
 
@@ -92,11 +128,6 @@ def train_sgd_model(train_file, user_map=None, movie_map=None, r=1, lam=0, lr=0.
         # diff = (Z_hat - Z)[mask]
         # print(diff)
 
-        # loss = torch.sum(diff ** 2) + lam * (torch.norm(W, 'fro') ** 2 + torch.norm(H, 'fro') ** 2)
-        # mse = (diff ** 2).mean()
-        # reg = lam * (W.norm() ** 2 + H.norm() ** 2)
-        # loss = mse + reg
-
         if epoch % 10 == 0:
             print(f"Epoch {epoch:4d}  loss = {loss.item():.4f}")
 
@@ -111,38 +142,4 @@ def train_sgd_model(train_file, user_map=None, movie_map=None, r=1, lam=0, lr=0.
     return Z_approx, user_map, movie_map
 
 
-def train_svd2_model(train_file, user_map=None, movie_map=None, r=14, impute=weighted_imputation, n_iter=3):
-    """
-    SVD2: iterative scheme
-      Z_with_zeros = original matrix (0 where missing)
-      Z_approx     = weighted‐imputed start
-      repeat n_iter times:
-        1) low‐rank SVD of Z_approx
-        2) reconstruct Z_approx = W @ H
-        3) re‐inject original (non‐zero) ratings into Z_approx
-    """
-    Z_with_zeros, user_map, movie_map = build_rating_matrix(train_file, user_map, movie_map)
-    Z_approx, _, _ = build_rating_matrix(train_file, user_map, movie_map, impute=impute)
 
-    not_missing = (Z_with_zeros != 0)
-
-    for t in range(n_iter):
-
-        svd = TruncatedSVD(n_components=r, random_state=42)
-
-        svd.fit(Z_approx)
-        Sigma2 = np.diag(svd.singular_values_)
-        VT = svd.components_
-
-        W = svd.transform(Z_approx) / svd.singular_values_
-        H = np.dot(Sigma2, VT)
-        Z_approx = np.dot(W, H)
-
-        Z_approx[not_missing] = Z_with_zeros[not_missing]
-
-        # optional debug
-        # rmse_known = np.sqrt(np.mean((Z_with_zeros[not_missing] -
-        #                              Z_approx[not_missing])**2))
-        # print(f"[SVD2] iter {t+1}/{n_iter}: RMSE on known = {rmse_known:.4f}")
-
-    return Z_approx, user_map, movie_map
