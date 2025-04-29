@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import KFold
 from .impute_functions import *
+from sklearn.model_selection import RandomizedSearchCV
+from scipy.stats import uniform
 
 
 def build_rating_matrix(train_file, user_map=None, movie_map=None, impute = False):
@@ -69,17 +71,20 @@ def split_data(file, n_splits=5):
     return train_dfs, test_dfs
 
 
-def optimal_r_finder(file, method, n_splits=5):
-    df = pd.read_csv(file)
+def optimal_r_finder(train_file, method, n_splits=10, sr = 20, ekw = {}):
+
+
+
+    df = pd.read_csv(train_file)
     unique_users = df["userId"].unique()
     user_map = {uid: i for i, uid in enumerate(sorted(unique_users))}
     unique_movies = df["movieId"].unique()
     movie_map = {mid: j for j, mid in enumerate(sorted(unique_movies))}
 
-    train_dfs, test_dfs = split_data(file, n_splits=n_splits)
+    train_dfs, test_dfs = split_data(train_file, n_splits=n_splits)
     # print("data splited")
 
-    RMSE_matrix = np.zeros((n_splits, 20), dtype=np.float32)
+    RMSE_matrix = np.zeros((n_splits, sr), dtype=np.float32)
 
     for fold, (train_df, test_df) in enumerate(zip(train_dfs, test_dfs)):
         RMSE_list = []
@@ -87,8 +92,8 @@ def optimal_r_finder(file, method, n_splits=5):
         Z_test, _, _ = build_rating_matrix(test_df, user_map, movie_map, impute=False)
 
         # for r in range(1, min(Z.shape[0], Z.shape[1]) + 1):
-        for r in range(1, 21):
-            Z_approx, _, _ = method(train_df, user_map, movie_map, r)
+        for r in range(1, sr+1):
+            Z_approx, _, _ = method(train_df, user_map, movie_map, r, **ekw)
             # print("Z approximated")
 
             test_i, test_j = np.where(Z_test != 0)
@@ -105,8 +110,6 @@ def optimal_r_finder(file, method, n_splits=5):
     print(r_best)
     return r_best, RMSE_matrix
 
-from sklearn.model_selection import   RandomizedSearchCV
-from scipy.stats import uniform
 
 
 

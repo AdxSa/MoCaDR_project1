@@ -13,8 +13,8 @@ from project1_s340146_s336942.modules.train_functions import train_nmf_model, tr
 from project1_s340146_s336942.modules.predict_functions import predict_ratings
 from project1_s340146_s336942.modules.helper_functions import optimal_r_finder, optimal_lam_finder
 from sklearn.decomposition import TruncatedSVD
-from project1_s340146_s336942.modules.plot_makers import plot_rmse
-
+from project1_s340146_s336942.modules.plot_functions import plot_rmse,plot_impute_diff
+from project1_s340146_s336942.modules.impute_functions import *
 
 # Tu zadeklarujemy zmienne globalne
 
@@ -33,8 +33,15 @@ def parse_arguments():
                         help="Path to save/load the trained NMF model.")
     parser.add_argument("--output_file", type=str, default="predictions/preds.csv",
                         help="Where to save predictions.")
-    parser.add_argument("--alg", type=str, default="NMF",
-                        help="Algorithm to use (only 'NMF' is implemented).")
+    parser.add_argument("--alg", type=str, default="ALL",
+                        help="Algorithm to use.")
+
+    parser.add_argument("--r", type=int, default=0,
+                        help="r to use for training (default -> searching for best r)")
+    parser.add_argument("--print_rmse_plots", type=str, default="no",
+                        help="plot printing: 'yes' to save algorithm rmse plot")
+    parser.add_argument("--print_impute_plot", type=str, default="no",
+                        help="plot printing: 'yes' to save algorithm impute plot")
     return parser.parse_args()
 
 
@@ -45,24 +52,28 @@ def main():
 
     ALGORITHMS = {
         "NMF": {
-            "trainer": train_nmf_model,
+            "method": train_nmf_model,
             "n_splits": 10,
-            "train_kwargs": {"init": "nndsvda", "max_iter": 3000}
+            "sr": 20,
+            "train_kwargs": {"init": "nndsvda", "max_iter": 3000, "impute": weighted_imputation}
         },
         "SVD1": {
-            "trainer": train_svd1_model,
+            "method": train_svd1_model,
             "n_splits": 10,
-            "train_kwargs": {}
+            "sr": 20,
+            "train_kwargs": {"impute": weighted_imputation}
         },
         "SVD2": {
-            "trainer": train_svd2_model,
+            "method": train_svd2_model,
             "n_splits": 10,
-            "train_kwargs": {"n_iter": 10}
+            "sr": 20,
+            "train_kwargs": {"impute": weighted_imputation, "n_iter": 5}
         },
         "SGD": {
-            "trainer": train_sgd_model,
-            "n_splits": 10,
-            "train_kwargs": {"lam": 0.1, "lr": 0.01, "n_epochs": 5000, "optimizer_name": "adam"}
+            "method": train_sgd_model,
+            "n_splits": 2,
+            "sr": 20,
+            "train_kwargs": {"lam": 0.1, "lr": 0.01, "n_epochs": 1000, "optimizer_name": "adam"}
         },
     }
 
@@ -73,22 +84,28 @@ def main():
     if train_mode:
         alg = args.alg.upper()
         entry = ALGORITHMS[alg]
-        trainer = entry["trainer"]
+        method = entry["method"]
         n_splits = entry["n_splits"]
+        sr = entry["sr"]
         extra_kw = entry.get("train_kwargs", {})
 
         print(f"Training mode activated.  Algorithm = {alg}")
 
-        # 2) find the best hyper‐param r
-        best_r, rmse_matrix = optimal_r_finder(args.train_file, trainer, n_splits)
-        print(f" -> Best r = {best_r}")
-        print(min(rmse_matrix.mean(axis=0)))
-        plot_rmse(rmse_matrix, alg)
+        if not args.r:
+            if args.print_impute_plot.lower() == "yes":
+                r, rmse_matrix = plot_impute_diff(args.train_file, alg, method , extra_kw, n_splits=n_splits, sr=sr)
+            else:
+                print(f"Searching for optimal r parameter")
+                r, rmse_matrix = optimal_r_finder(args.train_file, method, n_splits, sr, ekw=extra_kw)
+                print(f" -> Best r = {r}")
+                print(min(rmse_matrix.mean(axis=0)))
+            if args.print_rmse_plots.lower()=="yes":
+                plot_rmse(rmse_matrix, alg)
+        else: r = args.r
 
-
-        Z_approx, user_map, movie_map = trainer(
+        Z_approx, user_map, movie_map = method(
             args.train_file,
-            r=best_r,
+            r=r,
             **extra_kw
         )
         model_data = {

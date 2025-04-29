@@ -4,7 +4,7 @@ from sklearn.decomposition import NMF, TruncatedSVD
 from .helper_functions import build_rating_matrix, weighted_imputation
 
 
-def train_nmf_model(train_file, user_map=None, movie_map=None, r=5, init='nndsvda', max_iter=3000):
+def train_nmf_model(train_file, user_map=None, movie_map=None, r=5, impute=weighted_imputation, init='nndsvda', max_iter=3000):
     """
     Reads the ratings CSV file, builds the rating matrix using build_rating_matrix,
     performs NMF, and returns the approximated rating matrix along with mappings.
@@ -18,21 +18,20 @@ def train_nmf_model(train_file, user_map=None, movie_map=None, r=5, init='nndsvd
       - user_map (dict): Mapping from userId to row index.
       - movie_map (dict): Mapping from movieId to column index.
     """
-    Z, user_map, movie_map = build_rating_matrix(train_file, user_map, movie_map, impute=weighted_imputation)
+    Z, user_map, movie_map = build_rating_matrix(train_file, user_map, movie_map, impute=impute)
 
     model = NMF(n_components=r, init=init, max_iter=max_iter, random_state=42)
 
     W = model.fit_transform(Z)
     H = model.components_
     Z_approx = np.dot(W, H)
-    print('train')
 
     return Z_approx, user_map, movie_map
 
 
-def train_svd1_model(train_file, user_map=None, movie_map=None, r=14):
+def train_svd1_model(train_file, user_map=None, movie_map=None, r=14, impute=weighted_imputation):
 
-    Z, user_map, movie_map = build_rating_matrix(train_file, user_map, movie_map, impute=weighted_imputation)
+    Z, user_map, movie_map = build_rating_matrix(train_file, user_map, movie_map, impute=impute)
     svd = TruncatedSVD(n_components=r, random_state=42)
     svd.fit(Z)
     Sigma2 = np.diag(svd.singular_values_)
@@ -41,28 +40,31 @@ def train_svd1_model(train_file, user_map=None, movie_map=None, r=14):
     W = svd.transform(Z) / svd.singular_values_
     H = np.dot(Sigma2, VT)
     Z_approx = np.dot(W, H)
-    # print(Z_approx)
-    # print('train')
+
     return Z_approx, user_map, movie_map
 
-def train_sgd_model(train_file, user_map=None, movie_map=None, r=14, lam=0, lr=25, n_epochs=1000, optimizer_name="sgd"):
-    print(optimizer_name)
+def train_sgd_model(train_file, user_map=None, movie_map=None, r=1, lam=0, lr=0.01, n_epochs=1000, optimizer_name="sgd"):
+
     Z, user_map, movie_map = build_rating_matrix(train_file, user_map, movie_map)
     n, d = Z.shape
 
     std = 0.01
+    torch.manual_seed(42)
     W = torch.randn(n, r) * std
     H = torch.randn(r, d) * std
 
     W.requires_grad_(True)
     H.requires_grad_(True)
 
-    # test_i, test_j = np.where(Z != 0)
-    # true_val = Z[test_i, test_j]
+    temp_i, temp_j = np.nonzero(Z)
+    ratings = Z[temp_i, temp_j].astype(np.float32)
 
+    us = torch.from_numpy(temp_i)
+    mo = torch.from_numpy(temp_j)
+    true_val = torch.from_numpy(ratings).float()
 
     # true_val = torch.tensor(true_val)
-    Z = torch.tensor(Z)
+    Z = torch.tensor(Z, dtype=torch.float32)
     mask = (Z > 0).nonzero(as_tuple=True)
 
     if optimizer_name.lower() == "adam":
@@ -74,17 +76,26 @@ def train_sgd_model(train_file, user_map=None, movie_map=None, r=14, lam=0, lr=2
 
     for epoch in range(n_epochs):
         optimizer.zero_grad()
-        # print(W)
-        Z_hat = W @ H
+
+        W_u = W[us]  # shape: (#obs, r)
+        H_i = H[:, mo].transpose(0, 1)  # shape: (#obs, r)
+
+        # Compute predictions and loss
+        preds = (W_u * H_i).sum(dim=1)  # dot product per observed rating
+        mse = torch.sum((preds - true_val) ** 2)
+        reg = lam * (W.norm() ** 2 + H.norm() ** 2)
+        loss = mse + reg
+        # Z_hat = W @ H
+
         # approxed_val = Z_hat[test_i, test_j]
         # diff = (true_val-approxed_val)
-        diff = (Z_hat - Z)[mask]
+        # diff = (Z_hat - Z)[mask]
         # print(diff)
 
         # loss = torch.sum(diff ** 2) + lam * (torch.norm(W, 'fro') ** 2 + torch.norm(H, 'fro') ** 2)
-        mse = (diff ** 2).mean()
-        reg = lam * (W.norm() ** 2 + H.norm() ** 2)
-        loss = mse + reg
+        # mse = (diff ** 2).mean()
+        # reg = lam * (W.norm() ** 2 + H.norm() ** 2)
+        # loss = mse + reg
 
         if epoch % 10 == 0:
             print(f"Epoch {epoch:4d}  loss = {loss.item():.4f}")
@@ -100,7 +111,7 @@ def train_sgd_model(train_file, user_map=None, movie_map=None, r=14, lam=0, lr=2
     return Z_approx, user_map, movie_map
 
 
-def train_svd2_model(train_file, user_map=None, movie_map=None, r=14, n_iter=3, impute=weighted_imputation):
+def train_svd2_model(train_file, user_map=None, movie_map=None, r=14, impute=weighted_imputation, n_iter=3):
     """
     SVD2: iterative scheme
       Z_with_zeros = original matrix (0 where missing)
@@ -111,7 +122,7 @@ def train_svd2_model(train_file, user_map=None, movie_map=None, r=14, n_iter=3, 
         3) re‐inject original (non‐zero) ratings into Z_approx
     """
     Z_with_zeros, user_map, movie_map = build_rating_matrix(train_file, user_map, movie_map)
-    Z_approx, _, _ = build_rating_matrix(train_file, user_map, movie_map, impute=True)
+    Z_approx, _, _ = build_rating_matrix(train_file, user_map, movie_map, impute=impute)
 
     not_missing = (Z_with_zeros != 0)
 
