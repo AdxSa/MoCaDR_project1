@@ -27,27 +27,28 @@ pip install -r requirements.txt
 
 
 ## Repository structure
-- **`Report.pdf`** – Report which sums up whole project
-- **`main.py`** – Main file parsing user's commands
-- **`project1_s340146_s336942`** – Directory storing all the code and data used in the project
-- **`requirements.txt`** – list of needed libraries  
+- **`report.pdf`** – Report which sums up whole project
+- **`README.MD`** – This file
+- **`project1_s340146_s336942`** – Actual project
+- **`requirements.txt`** – list of needed libraries
+- **`sample_test.csv`** - sample test from sample_project
+- **`sample_test_with_ratings.csv`** - sample test with ratings from sample_project
 - **`plots`** - Directory storing generated plots used in the report
-- **`models`** - Directory storing trained models in .pkl format
+- **`tools`** - tools directory from sample_project
 
 ### project structure
 - **project1_s340146_s336942/**  
-  - **data/**  
+  - **data/** - data store directory
     - `ratings.csv`  
-  - **modules/**  
+  - **modules/** - most of the project code, all important functions used in project
     - `__init__.py`
     - `helper_functions.py`
     - `impute_functions.py`
     - `plot_functions.py`   
     - `predict_functions.py`  
     - `train_functions.py`  
-  - **models_trained/**  _(to be created)_  
-  - **results/**         _(to be created)_  
-  - `README.md`  
+  - **models_trained/** - directory with stored all trained models 
+  - **results/** - directory to store predictions
   - `main.py`  
 ---
 
