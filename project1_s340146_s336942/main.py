@@ -27,13 +27,13 @@ def parse_arguments():
                         help="Train mode: 'yes' to train NMF model, 'no' otherwise.")
     parser.add_argument("--predict", type=str, default="no",
                         help="Predict mode: 'yes' to predict ratings, 'no' otherwise.")
-    parser.add_argument("--train_file", type=str, default="project1_s340146_s336942/data/ratings.csv",
+    parser.add_argument("--train_file", type=str, default="data/ratings.csv",
                         help="CSV file with training data (userId,movieId,rating).")
     parser.add_argument("--input_file", type=str, default="pred.csv",
                         help="CSV file with (userId,movieId) for predictions.")
-    parser.add_argument("--model_path", type=str, default="project1_s340146_s336942/models_trained/all_models.pkl",
+    parser.add_argument("--model_path", type=str, default="models_trained/all_models.pkl",
                         help="Path to save/load the trained NMF model.")
-    parser.add_argument("--output_file", type=str, default="project1_s340146_s336942/results/preds.csv",
+    parser.add_argument("--output_file", type=str, default="results/preds.csv",
                         help="Where to save predictions.")
     parser.add_argument("--alg", type=str, default="ALL",
                         help="Algorithm to use.")
@@ -176,7 +176,7 @@ def main():
             model_data = pickle.load(f)
 
         def pred_time(alg, output_file):
-            predictions = predict_ratings(args.test_file, model_data[alg])
+            predictions = predict_ratings(args.input_file, model_data[alg])
 
             # Save predictions
             os.makedirs(os.path.dirname(args.output_file), exist_ok=True)
