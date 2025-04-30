@@ -1,5 +1,6 @@
 import argparse
 import pickle
+import os
 from modules.predict_functions import *
 from modules.helper_functions import *
 from modules.plot_functions import *
@@ -24,7 +25,7 @@ def parse_arguments():
     """
     parser = argparse.ArgumentParser(description="simple recommender system")
     parser.add_argument("--train", type=str, default="no",
-                        help="Train mode: 'yes' to train NMF model, 'no' otherwise.")
+                        help="Train mode: 'yes' to train models, 'no' otherwise.")
     parser.add_argument("--predict", type=str, default="no",
                         help="Predict mode: 'yes' to predict ratings, 'no' otherwise.")
     parser.add_argument("--train_file", type=str, default="project1_s340146_s336942/data/ratings.csv",
@@ -32,7 +33,7 @@ def parse_arguments():
     parser.add_argument("--input_file", type=str, default="pred.csv",
                         help="CSV file with (userId,movieId) for predictions.")
     parser.add_argument("--model_path", type=str, default="project1_s340146_s336942/models_trained/all_models.pkl",
-                        help="Path to save/load the trained NMF model.")
+                        help="Path to save/load the trained model(s) pickle.")
     parser.add_argument("--output_file", type=str, default="project1_s340146_s336942/results/preds.csv",
                         help="Where to save predictions.")
     parser.add_argument("--alg", type=str, default="ALL",
@@ -45,39 +46,13 @@ def parse_arguments():
                         help="plot printing: 'yes' to save algorithm impute plot")
     return parser.parse_args()
 
-
 def main():
-    """
-    Entry point of the recommender system script.
-
-    Depending on command-line flags, it can:
-      - Train one or more algorithms (NMF, SVD1, SVD2, SGD), optionally searching for the best rank.
-      - Save the trained model data (W, H, mappings) to a pickle file.
-      - Load the trained model and generate rating predictions for a test set.
-      - Save prediction outputs to CSV.
-
-    Workflow:
-      1. Parse arguments.
-      2. If train mode:
-           a. For each selected algorithm, search or fix hyperparameters.
-           b. Train final model with chosen hyperparameters.
-           c. Serialize all trained models to `--model_path`.
-      3. If predict mode:
-           a. Load model(s) from `--model_path`.
-           b. For each selected algorithm, call `predict_ratings` on `--input_file`.
-           c. Write predictions to `--output_file` (one CSV per algorithm if ALL).
-    """
     args = parse_arguments()
     train_mode = (args.train.lower() == "yes")
     predict_mode = (args.predict.lower() == "yes")
 
     ALGORITHMS = {
-        "ALL": {
-            "NMF":"NMF",
-            "SVD1":"SVD1",
-            "SVD2":"SVD2",
-            "SGD":"SGD"
-        },
+        "ALL": ["NMF", "SVD1", "SVD2", "SGD"],
         "NMF": {
             "hp_finder": optimal_r_finder,
             "method": train_nmf_model,
@@ -104,7 +79,7 @@ def main():
             "method": train_sgd_model,
             "n_splits": 10,
             "sr": (10,30),
-            "train_kwargs": { "lr": 0.01, "n_epochs": 50, "optimizer_name": "adam"}
+            "train_kwargs": {"lr": 0.01, "n_epochs": 50, "optimizer_name": "adam"}
         },
     }
 
@@ -116,79 +91,94 @@ def main():
         def training_time(alg):
             entry = ALGORITHMS[alg]
             method = entry["method"]
-            n_splits = entry["n_splits"]
-            sr = entry["sr"]
-            hp_finder = entry["hp_finder"]
+            n_splits = entry.get("n_splits")
+            sr = entry.get("sr")
+            hp_finder = entry.get("hp_finder")
             extra_kw = entry.get("train_kwargs", {})
 
-            print(f"Training mode activated.  Algorithm = {alg}")
+            print(f"Training mode activated. Algorithm = {alg}")
 
-            if not args.r:
+
+            if not args.r and hp_finder is not None:
                 if args.print_impute_plot.lower() == "yes":
-                    best_hyper, rmse_matrix = plot_impute_diff(args.train_file, alg, method, extra_kw,
-                                                               n_splits=n_splits, sr=sr)
+                    best_hyper, rmse_matrix = plot_impute_diff(
+                        args.train_file, alg, method, extra_kw, n_splits=n_splits, sr=sr)
                 else:
-                    print(f"Searching for optimal r parameter")
-                    best_hyper, rmse_matrix = hp_finder(args.train_file, method, n_splits, sr, ekw=extra_kw)
+                    print("Searching for optimal r parameter")
+                    best_hyper, rmse_matrix = hp_finder(
+                        args.train_file, method, n_splits, sr, ekw=extra_kw)
                 if args.print_rmse_plots.lower() == "yes":
                     plot_rmse(rmse_matrix, alg, sr)
             else:
-                r = args.r
+                best_hyper = args.r if alg != "SGD" else (args.r, None)
 
             if alg == "SGD":
-                best_hyper = {"r": best_hyper[0], "lam": best_hyper[1]}
+                hyperparams = {"r": best_hyper[0], "lam": best_hyper[1]}
             else:
-                best_hyper = {"r": best_hyper}
+                hyperparams = {"r": best_hyper}
+
 
             W_approx, H_approx, user_map, movie_map = method(
                 args.train_file,
-                **best_hyper,
+                **hyperparams,
                 **extra_kw
             )
-            model_data = {alg: {
-                "W": W_approx,
-                "H": H_approx,
-                "user_map": user_map,
-                "movie_map": movie_map
-            }}
+            return {alg: {"W": W_approx, "H": H_approx, "user_map": user_map, "movie_map": movie_map}}
 
-            return model_data
 
         if args.alg.upper() == "ALL":
-            all_model_data = dict()
+            all_model_data = {}
             for alg in ALGORITHMS["ALL"]:
-                all_model_data = all_model_data | training_time(alg)
+                model_data = training_time(alg)
+                all_model_data.update(model_data)
+
+            base, ext = os.path.splitext(args.model_path)
+            for alg, data in all_model_data.items():
+                model_file = f"{base}_{alg}{ext}"
+                os.makedirs(os.path.dirname(model_file), exist_ok=True)
+                with open(model_file, "wb") as f:
+                    pickle.dump({alg: data}, f)
+                print(f"Model {alg} saved to {model_file}")
         else:
-            all_model_data = training_time(args.alg.upper())
-
-        os.makedirs(os.path.dirname(args.model_path), exist_ok=True)
-        with open(args.model_path, "wb") as f:
-            pickle.dump(all_model_data, f)
-
-        print(f"Model saved to {args.model_path}")
+            model_data = training_time(args.alg.upper())
+            os.makedirs(os.path.dirname(args.model_path), exist_ok=True)
+            with open(args.model_path, "wb") as f:
+                pickle.dump(model_data, f)
+            print(f"Model saved to {args.model_path}")
 
     if predict_mode:
         print("Prediction mode activated.")
         if not os.path.exists(args.model_path):
             print("Model file does not exist. Please run training first.")
             return
-        with open(args.model_path, "rb") as f:
-            model_data = pickle.load(f)
 
-        def pred_time(alg, output_file):
-            predictions = predict_ratings(args.test_file, model_data[alg])
 
-            # Save predictions
-            os.makedirs(os.path.dirname(args.output_file), exist_ok=True)
-            with open(args.output_file, "w") as f:
+        model_data = {}
+        if args.alg.upper() == "ALL":
+            base, ext = os.path.splitext(args.model_path)
+            for alg in ALGORITHMS["ALL"]:
+                model_file = f"{base}_{alg}{ext}"
+                with open(model_file, "rb") as f:
+                    model_data.update(pickle.load(f))
+        else:
+            with open(args.model_path, "rb") as f:
+                model_data = pickle.load(f)
+
+
+        def pred_time(alg, out_file):
+            predictions = predict_ratings(args.input_file, model_data[alg])
+            os.makedirs(os.path.dirname(out_file), exist_ok=True)
+            with open(out_file, "w") as f:
                 f.write("userId,movieId,rating\n")
                 for row in predictions:
                     f.write(f"{row['userId']},{row['movieId']},{row['rating']}\n")
-            print(f"Predictions with {alg} saved to {output_file}")
+            print(f"Predictions with {alg} saved to {out_file}")
 
-        if args.alg.upper() == "ALL" and len(model_data) != 1:
+
+        if args.alg.upper() == "ALL":
             for alg in ALGORITHMS["ALL"]:
-                pred_time(alg, args.output_file + f"/{alg}")
+                out_file = args.output_file.replace(ext, f"_{alg}{ext}")
+                pred_time(alg, out_file)
         else:
             pred_time(args.alg.upper(), args.output_file)
 
