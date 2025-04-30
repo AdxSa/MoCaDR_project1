@@ -24,9 +24,8 @@ def train_nmf_model(train_file, user_map=None, movie_map=None, r=5, impute=weigh
 
     W = model.fit_transform(Z)
     H = model.components_
-    Z_approx = np.dot(W, H)
 
-    return Z_approx, user_map, movie_map
+    return W, H, user_map, movie_map
 
 
 def train_svd1_model(train_file, user_map=None, movie_map=None, r=14, impute=weighted_imputation):
@@ -39,9 +38,8 @@ def train_svd1_model(train_file, user_map=None, movie_map=None, r=14, impute=wei
 
     W = svd.transform(Z) / svd.singular_values_
     H = np.dot(Sigma2, VT)
-    Z_approx = np.dot(W, H)
 
-    return Z_approx, user_map, movie_map
+    return W, H, user_map, movie_map
 
 
 def train_svd2_model(train_file, user_map=None, movie_map=None, r=14, impute=weighted_imputation, n_iter=3):
@@ -78,7 +76,7 @@ def train_svd2_model(train_file, user_map=None, movie_map=None, r=14, impute=wei
         #                              Z_approx[not_missing])**2))
         # print(f"[SVD2] iter {t+1}/{n_iter}: RMSE on known = {rmse_known:.4f}")
 
-    return Z_approx, user_map, movie_map
+    return W, H, user_map, movie_map
 
 
 def train_sgd_model(train_file, user_map=None, movie_map=None, r=1, lam=0, lr=0.01, n_epochs=1000, optimizer_name="sgd"):
@@ -87,8 +85,10 @@ def train_sgd_model(train_file, user_map=None, movie_map=None, r=1, lam=0, lr=0.
     n, d = Z.shape
 
     torch.manual_seed(42)
-    W = torch.rand(n, r)
-    H = torch.rand(r, d)
+
+    c = 4*Z[Z > 0].mean()/r
+    W = torch.rand(n, r) * c
+    H = torch.rand(r, d) * c
     W.requires_grad_(True)
     H.requires_grad_(True)
 
@@ -137,9 +137,7 @@ def train_sgd_model(train_file, user_map=None, movie_map=None, r=1, lam=0, lr=0.
     W = W.detach().numpy()
     H = H.detach().numpy()
 
-    Z_approx = W @ H
-
-    return Z_approx, user_map, movie_map
+    return W, H, user_map, movie_map
 
 
 

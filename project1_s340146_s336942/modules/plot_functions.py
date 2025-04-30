@@ -11,7 +11,7 @@ from .helper_functions import optimal_r_finder
 # 0.9775487, 0.977359, 0.9773063, 0.977555, 0.97751814, 0.977642, 0.97774607, 0.97774386, 0.97762436, 0.97770333, 0.97793525, 0.9778389, 0.9779816, 0.9781167, 0.97807825]]
 #
 # rmse_per_r = list(map(list, zip(*rmse_list)))
-def plot_rmse(rmse_matrix, alg, folder_path = "plots"):
+def plot_rmse(rmse_matrix, alg, sr, folder_path = "plots"):
 
     rmse_means = rmse_matrix.mean(axis=0)
     best_idx = np.argmin(rmse_means)
@@ -30,15 +30,13 @@ def plot_rmse(rmse_matrix, alg, folder_path = "plots"):
     plt.boxplot(
         rmse_matrix,
         patch_artist=True,
-        labels=[str(r) for r in range(1, rmse_matrix.shape[1] + 1)],
+        labels=[str(r) for r in range(sr[0], sr[1] + 1)],
         showmeans=True,
         meanline=True
     )
-
     plt.title(f"Boxplot of RMSE per r for {alg}", fontsize=14, pad=15)
     plt.xlabel("Number of components (r)", labelpad=10)
     plt.ylabel("RMSE", labelpad=10)
-    # plt.xticks(rotation=90)
     plt.grid(axis="y", linestyle="--", alpha=0.4)
     plt.tight_layout()
 
@@ -47,7 +45,7 @@ def plot_rmse(rmse_matrix, alg, folder_path = "plots"):
         color='red',
         linestyle='--',
         linewidth=1.5,
-        label=f'Best r = {best_idx+1}'
+        label=f'Best r = {sr[0] + best_idx}'
     )
 
     plt.legend(loc='upper right')
