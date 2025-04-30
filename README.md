@@ -20,3 +20,44 @@
   python tools/evaluate_solution.py --true_file sample_test_with_ratings.csv --pred_file project1_s340146_s336942/results/pred_name.csv     
 ```
   you can use different files, to get better results.
+
+
+# Movie Recommender System
+
+This repository implements a simple movie‐recommendation system. Given a ratings dataset (`userId, movieId, rating`) in CSV format, we train and evaluate four matrix-factorization methods:
+
+- **NMF** (Non-negative Matrix Factorization)  
+- **SVD1** (Truncated SVD )  
+- **SVD2** (Iterated SVD: “SVD2”)  
+- **SGD** (Stochastic Gradient Descent on low-rank factors)  
+
+All methods are evaluated via \(k\)-fold cross-validation to select the best rank (and regularization) before producing final predictions.
+
+---
+
+## Repository structure
+- **`Równanie ciepła.pdf`** – Raport zawierający opis poruszanych problemów
+- **`run_experiments.py`** – Główny plik uruchamiający symulację  
+- **`run_animations.py`** – Plik uruchamiający animacje
+- **`project.py`** – Plik ze zdefiniowanymi wszystkimi klasami i funkcjami pomocniczymi
+- **`physical_and_numerical_data.json`** – Plik zawierający stałe fizyczne wykorzystywane w obliczeniach 
+- **`data.csv`** – Plik csv zawierający temperatury dobowe w trzech wariantach 
+- **`requirements.txt`** – list of needed libraries  
+- **`plots`** - Folder z wybranymi wizualizacjami z symulacji
+
+---
+
+## Requirements  
+The following libraries are required to run the code:  
+- `numpy`   
+- `pandas`
+- `Sci-kit learn`
+- `torch`  
+  
+These libraries can be installed using:  
+```bash
+pip install -r requirements.txt
+```
+<!-- ## Repository Structure -->
+
+
