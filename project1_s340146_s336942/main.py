@@ -28,7 +28,7 @@ def parse_arguments():
                         help="Train mode: 'yes' to train models, 'no' otherwise.")
     parser.add_argument("--predict", type=str, default="no",
                         help="Predict mode: 'yes' to predict ratings, 'no' otherwise.")
-    parser.add_argument("--train_file", type=str, default="project1_s340146_s336942/data/ratings.csv",
+    parser.add_argument("--train_file", type=str, default="data/ratings.csv",
                         help="CSV file with training data (userId,movieId,rating).")
     parser.add_argument("--input_file", type=str, default="pred.csv",
                         help="CSV file with (userId,movieId) for predictions.")
