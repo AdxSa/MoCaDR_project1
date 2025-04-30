@@ -36,13 +36,12 @@ All methods are evaluated via \(k\)-fold cross-validation to select the best ran
 ---
 
 ## Repository structure
-- **`Równanie ciepła.pdf`** – Raport zawierający opis poruszanych problemów
-- **`run_experiments.py`** – Główny plik uruchamiający symulację  
-- **`run_animations.py`** – Plik uruchamiający animacje
-- **`project.py`** – Plik ze zdefiniowanymi wszystkimi klasami i funkcjami pomocniczymi
-- **`data.csv`** – Plik csv zawierający temperatury dobowe w trzech wariantach 
+- **`Report.pdf`** – Report which sums up whole project
+- **`main.py`** – Main file parsing user's commands
+- **`project1_s340146_s336942`** – Directory storing all the code and data used in the project
 - **`requirements.txt`** – list of needed libraries  
-- **`plots`** - Folder z wybranymi wizualizacjami z symulacji
+- **`plots`** - Directory storing generated plots used in the report
+- **`models`** - Directory storing trained models in .pkl format
 
 ---
 
@@ -57,22 +56,6 @@ These libraries can be installed using:
 ```bash
 pip install -r requirements.txt
 ```
-<!-- ## Repository Structure -->
 
-├───.idea
-│   └───inspectionProfiles
-├───models
-│   └───__pycache__
-├───models_trained
-├───plots
-├───project1_s340146_s336942
-│   ├───data
-│   ├───models
-│   │   └───__pycache__
-│   ├───modules
-│   │   └───__pycache__
-│   └───results
-├───results
-└───tools
 
 
