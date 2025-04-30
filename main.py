@@ -120,20 +120,21 @@ def main():
                 **best_hyper,
                 **extra_kw
             )
-            model_data = {
+            model_data = {alg: {
                 "W": W_approx,
                 "H": H_approx,
                 "user_map": user_map,
                 "movie_map": movie_map
-            }
+            }}
 
             return model_data
 
         if args.alg.upper() =="ALL":
-            all_model_data = {}
+            all_model_data = dict()
             for alg in ALGORITHMS["ALL"]:
-                all_model_data[alg] = training_time(alg)
+                all_model_data = all_model_data | training_time(alg)
         else: all_model_data = training_time(args.alg.upper())
+
 
         os.makedirs(os.path.dirname(args.model_path), exist_ok=True)
         with open(args.model_path, "wb") as f:
@@ -149,15 +150,24 @@ def main():
             return
         with open(args.model_path, "rb") as f:
             model_data = pickle.load(f)
-        predictions = predict_ratings(args.test_file, model_data)
 
-        # Save predictions
-        os.makedirs(os.path.dirname(args.output_file), exist_ok=True)
-        with open(args.output_file, "w") as f:
-            f.write("userId,movieId,rating\n")
-            for row in predictions:
-                f.write(f"{row['userId']},{row['movieId']},{row['rating']}\n")
-        print(f"Predictions saved to {args.output_file}")
+        def pred_time(alg, output_file):
+
+            predictions = predict_ratings(args.test_file, model_data[alg])
+
+            # Save predictions
+            os.makedirs(os.path.dirname(args.output_file), exist_ok=True)
+            with open(args.output_file, "w") as f:
+                f.write("userId,movieId,rating\n")
+                for row in predictions:
+                    f.write(f"{row['userId']},{row['movieId']},{row['rating']}\n")
+            print(f"Predictions with {alg} saved to {output_file}")
+
+        if args.alg.upper() == "ALL" and len(model_data) != 1:
+            for alg in ALGORITHMS["ALL"]:
+                pred_time(alg, args.output_file + f"/{alg}")
+        else:
+            pred_time(args.alg.upper(), args.output_file)
 
 
 if __name__ == "__main__":

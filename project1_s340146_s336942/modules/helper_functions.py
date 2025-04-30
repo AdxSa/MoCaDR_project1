@@ -82,7 +82,7 @@ def optimal_r_finder(train_file, method, n_splits=10, sr = (1,20), ekw = {}):
     train_dfs, test_dfs = split_data(train_file, n_splits=n_splits)
     # print("data splited")
 
-    RMSE_matrix = np.zeros((n_splits, sr), dtype=np.float32)
+    RMSE_matrix = np.zeros((n_splits, sr[1]-sr[0]+1), dtype=np.float32)
 
     for fold, (train_df, test_df) in enumerate(zip(train_dfs, test_dfs)):
         RMSE_list = []
