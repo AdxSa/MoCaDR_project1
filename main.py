@@ -3,17 +3,11 @@
 ## author: Paweł Lorek
 
 import argparse
-import os
 import pickle
-import pandas as pd
-import numpy as np
 # import torch
-from sklearn.metrics import root_mean_squared_error
-from project1_s340146_s336942.modules.train_functions import train_nmf_model, train_svd1_model, train_svd2_model, train_sgd_model
-from project1_s340146_s336942.modules.predict_functions import predict_ratings
-from project1_s340146_s336942.modules.helper_functions import optimal_r_finder, optimal_sgd_hyperparams
-from sklearn.decomposition import TruncatedSVD
-from project1_s340146_s336942.modules.plot_functions import plot_rmse,plot_impute_diff
+from project1_s340146_s336942.modules.predict_functions import *
+from project1_s340146_s336942.modules.helper_functions import *
+from project1_s340146_s336942.modules.plot_functions import *
 from project1_s340146_s336942.modules.impute_functions import *
 
 # Tu zadeklarujemy zmienne globalne
@@ -61,28 +55,28 @@ def main():
             "hp_finder": optimal_r_finder,
             "method": train_nmf_model,
             "n_splits": 10,
-            "sr": 20,
+            "sr": (1,20),
             "train_kwargs": {"init": "nndsvda", "max_iter": 1000, "impute": weighted_imputation}
         },
         "SVD1": {
             "hp_finder": optimal_r_finder,
             "method": train_svd1_model,
             "n_splits": 10,
-            "sr": 20,
+            "sr": (1,20),
             "train_kwargs": {"impute": weighted_imputation}
         },
         "SVD2": {
             "hp_finder": optimal_r_finder,
             "method": train_svd2_model,
             "n_splits": 10,
-            "sr": 20,
+            "sr": (1,20),
             "train_kwargs": {"impute": weighted_imputation, "n_iter": 5}
         },
         "SGD": {
             "hp_finder": optimal_sgd_hyperparams,
             "method": train_sgd_model,
             "n_splits": 10,
-            "sr": 20,
+            "sr": (10,30),
             "train_kwargs": { "lr": 0.01, "n_epochs": 50, "optimizer_name": "adam"}
         },
     }
@@ -111,12 +105,9 @@ def main():
 
                 else:
                     print(f"Searching for optimal r parameter")
-                    # r, rmse_matrix = optimal_r_finder(args.train_file, method, n_splits, sr, ekw=extra_kw)
                     best_hyper, rmse_matrix = hp_finder(args.train_file, method, n_splits, sr, ekw=extra_kw)
-                print(f" -> Best hyperparameters = {best_hyper}")
-                print(min(rmse_matrix.mean(axis=0)))
                 if args.print_rmse_plots.lower() == "yes":
-                    plot_rmse(rmse_matrix, alg)
+                    plot_rmse(rmse_matrix, alg, sr)
             else:
                 r = args.r
 
@@ -124,13 +115,14 @@ def main():
                 best_hyper = {"r": best_hyper[0], "lam": best_hyper[1]}
             else: best_hyper = {"r": best_hyper}
 
-            Z_approx, user_map, movie_map = method(
+            W_approx, H_approx, user_map, movie_map = method(
                 args.train_file,
                 **best_hyper,
                 **extra_kw
             )
             model_data = {
-                "Z_approx": Z_approx,
+                "W": W_approx,
+                "H": H_approx,
                 "user_map": user_map,
                 "movie_map": movie_map
             }

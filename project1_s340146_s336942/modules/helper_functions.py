@@ -1,9 +1,7 @@
 import pandas as pd
-import numpy as np
 from sklearn.model_selection import KFold
 from .impute_functions import *
-from sklearn.model_selection import RandomizedSearchCV
-from scipy.stats import uniform
+
 
 
 def build_rating_matrix(train_file, user_map=None, movie_map=None, impute = False):
@@ -71,7 +69,7 @@ def split_data(file, n_splits=5):
     return train_dfs, test_dfs
 
 
-def optimal_r_finder(train_file, method, n_splits=10, sr = 20, ekw = {}):
+def optimal_r_finder(train_file, method, n_splits=10, sr = (1,20), ekw = {}):
 
 
 
@@ -93,9 +91,9 @@ def optimal_r_finder(train_file, method, n_splits=10, sr = 20, ekw = {}):
         test_i, test_j = np.nonzero(Z_test)
         true_val = Z_test[test_i, test_j]
         # for r in range(1, min(Z.shape[0], Z.shape[1]) + 1):
-        for r in range(1, sr+1):
-            Z_approx, _, _ = method(train_df, user_map, movie_map, r, **ekw)
-            # print("Z approximated")
+        for r in range(sr[0], sr[1]+1):
+            W, H, _, _ = method(train_df, user_map, movie_map, r, **ekw)
+            Z_approx = np.dot(W, H)
 
 
             approxed_val = Z_approx[test_i, test_j]
@@ -107,14 +105,14 @@ def optimal_r_finder(train_file, method, n_splits=10, sr = 20, ekw = {}):
         RMSE_matrix[fold,] = RMSE_list
     RMSE_mean = RMSE_matrix.mean(axis=0)
     r_best = np.argmin(RMSE_mean) + 1
-    print(r_best)
+    print(f"Best r = {r_best} (CV RMSE = {np.min(RMSE_mean):.4f})")
     return r_best, RMSE_matrix
 
 
 def optimal_sgd_hyperparams(train_file,
                             method,
                             n_splits=10,
-                            sr=20,
+                            sr=(10,30),
                             ekw={}):
     """
     Grid‐search over ranks and regularizations for SGD-based MF.
@@ -124,9 +122,9 @@ def optimal_sgd_hyperparams(train_file,
       best_lam:  lambda  with lowest CV RMSE
       cv_errors: dict mapping (r,lam) -> mean RMSE over folds
     """
-    r_list = np.arange(1, sr+1, 1)
-    lam_list = np.array([0, 0.01, 0.1, 1])
-    # lam_list = [0]
+    r_list = np.arange(sr[0], sr[1]+1, 1)
+    # lam_list = np.array([0, 0.01, 0.1, 1])
+    lam_list = [0]
     # lam_list = np.array([0,1,10,100,1000])
     df = pd.read_csv(train_file)
     unique_users = df["userId"].unique()
@@ -149,7 +147,8 @@ def optimal_sgd_hyperparams(train_file,
         for r in r_list:
             for lam in lam_list:
                 # Train on the fold’s training split
-                Z_approx, _, _ = method(train_df, user_map, movie_map, r, lam=lam, **ekw)
+                W, H, _, _ = method(train_df, user_map, movie_map, r, lam=lam, **ekw)
+                Z_approx = np.dot(W, H)
 
                 approxed_val = Z_approx[test_i, test_j]
 

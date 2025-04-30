@@ -11,7 +11,10 @@ def predict_ratings(test_file, model_data):
     """
     df = pd.read_csv(test_file)
 
-    Z_approx = model_data["Z_approx"]
+    # Z_approx = model_data["Z_approx"]
+    W = model_data["W"]
+    H = model_data["H"]
+    Z_approx = W @ H
     user_map = model_data["user_map"]
     movie_map = model_data["movie_map"]
 
