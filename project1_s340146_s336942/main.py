@@ -1,19 +1,27 @@
-## Methods of classification and dimensionality reduction
-## University of Wrocław
-## author: Paweł Lorek
-
 import argparse
 import pickle
-# import torch
-from project1_s340146_s336942.modules.predict_functions import *
-from project1_s340146_s336942.modules.helper_functions import *
-from project1_s340146_s336942.modules.plot_functions import *
-from project1_s340146_s336942.modules.impute_functions import *
-
-# Tu zadeklarujemy zmienne globalne
-
+from modules.predict_functions import *
+from modules.helper_functions import *
+from modules.plot_functions import *
+from modules.train_functions import *
 
 def parse_arguments():
+    """
+    Parse command-line arguments for the recommender system.
+
+    Returns:
+        argparse.Namespace: Contains the following attributes:
+            - train (str): "yes"/"no" flag to trigger training.
+            - predict (str): "yes"/"no" flag to trigger prediction.
+            - train_file (str): Path to CSV with training data (userId,movieId,rating).
+            - input_file (str): Path to CSV with (userId,movieId) pairs for prediction.
+            - model_path (str): Path to save or load the trained model pickle.
+            - output_file (str): Path to write the prediction results CSV.
+            - alg (str): Algorithm choice ("ALL", "NMF", "SVD1", "SVD2", "SGD").
+            - r (int): Fixed rank; if zero, performs hyperparameter search.
+            - print_rmse_plots (str): "yes"/"no" to save RMSE boxplots.
+            - print_impute_plot (str): "yes"/"no" to save imputation comparison plots.
+    """
     parser = argparse.ArgumentParser(description="simple recommender system")
     parser.add_argument("--train", type=str, default="no",
                         help="Train mode: 'yes' to train NMF model, 'no' otherwise.")
@@ -29,7 +37,6 @@ def parse_arguments():
                         help="Where to save predictions.")
     parser.add_argument("--alg", type=str, default="ALL",
                         help="Algorithm to use.")
-
     parser.add_argument("--r", type=int, default=0,
                         help="r to use for training (default -> searching for best r)")
     parser.add_argument("--print_rmse_plots", type=str, default="no",
@@ -40,6 +47,26 @@ def parse_arguments():
 
 
 def main():
+    """
+    Entry point of the recommender system script.
+
+    Depending on command-line flags, it can:
+      - Train one or more algorithms (NMF, SVD1, SVD2, SGD), optionally searching for the best rank.
+      - Save the trained model data (W, H, mappings) to a pickle file.
+      - Load the trained model and generate rating predictions for a test set.
+      - Save prediction outputs to CSV.
+
+    Workflow:
+      1. Parse arguments.
+      2. If train mode:
+           a. For each selected algorithm, search or fix hyperparameters.
+           b. Train final model with chosen hyperparameters.
+           c. Serialize all trained models to `--model_path`.
+      3. If predict mode:
+           a. Load model(s) from `--model_path`.
+           b. For each selected algorithm, call `predict_ratings` on `--input_file`.
+           c. Write predictions to `--output_file` (one CSV per algorithm if ALL).
+    """
     args = parse_arguments()
     train_mode = (args.train.lower() == "yes")
     predict_mode = (args.predict.lower() == "yes")
@@ -85,8 +112,6 @@ def main():
         print(f"--alg {args.alg.upper()} is not implemented in project.")
         return
 
-
-
     if train_mode:
         def training_time(alg):
             entry = ALGORITHMS[alg]
@@ -102,7 +127,6 @@ def main():
                 if args.print_impute_plot.lower() == "yes":
                     best_hyper, rmse_matrix = plot_impute_diff(args.train_file, alg, method, extra_kw,
                                                                n_splits=n_splits, sr=sr)
-
                 else:
                     print(f"Searching for optimal r parameter")
                     best_hyper, rmse_matrix = hp_finder(args.train_file, method, n_splits, sr, ekw=extra_kw)
@@ -113,7 +137,8 @@ def main():
 
             if alg == "SGD":
                 best_hyper = {"r": best_hyper[0], "lam": best_hyper[1]}
-            else: best_hyper = {"r": best_hyper}
+            else:
+                best_hyper = {"r": best_hyper}
 
             W_approx, H_approx, user_map, movie_map = method(
                 args.train_file,
@@ -129,19 +154,18 @@ def main():
 
             return model_data
 
-        if args.alg.upper() =="ALL":
+        if args.alg.upper() == "ALL":
             all_model_data = dict()
             for alg in ALGORITHMS["ALL"]:
                 all_model_data = all_model_data | training_time(alg)
-        else: all_model_data = training_time(args.alg.upper())
-
+        else:
+            all_model_data = training_time(args.alg.upper())
 
         os.makedirs(os.path.dirname(args.model_path), exist_ok=True)
         with open(args.model_path, "wb") as f:
             pickle.dump(all_model_data, f)
 
         print(f"Model saved to {args.model_path}")
-
 
     if predict_mode:
         print("Prediction mode activated.")
@@ -152,7 +176,6 @@ def main():
             model_data = pickle.load(f)
 
         def pred_time(alg, output_file):
-
             predictions = predict_ratings(args.test_file, model_data[alg])
 
             # Save predictions
@@ -169,12 +192,5 @@ def main():
         else:
             pred_time(args.alg.upper(), args.output_file)
 
-
 if __name__ == "__main__":
     main()
-    # # kf = split_data("project1_s340146_s336942/data/ratings.csv")
-    #
-    # a = RecommenderSystem()
-    # a.load_data("project1_s340146_s336942/data/ratings.csv", "sample_test_with_ratings.csv")
-    # a.SGD()
-    # print(optimal_lam_finder("project1_s340146_s336942/data/ratings.csv", train_sgd_model))
